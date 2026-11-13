@@ -20,6 +20,13 @@ Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e 
 | Exportação | Excel mensal para o contabilista (movimentos + resumo) |
 | Administração | Utilizadores e perfis, categorias e níveis, ligação ao Jotform, auditoria |
 
+## Login
+
+- **Google** (OAuth).
+- **Email sem senha:** a pessoa indica o email e recebe um link de acesso de uso único (Firebase Email Link). Não há senhas guardadas.
+- Só entra quem tiver perfil ativo (ou for Master). O email tem de estar verificado (Google e link de email já o garantem).
+- Um código numérico por email exigiria uma função no servidor e um serviço de envio de email (plano Blaze); fica como evolução.
+
 ## Perfis e privacidade
 
 | Perfil | Âmbito | Pode |
@@ -85,3 +92,4 @@ As regras do Firestore publicam-se com `npx firebase deploy --only firestore:rul
 5. **Formato para o contabilista** e **mapa de contas SNC-ESNL** por categoria.
 6. **Retenção de dados (RGPD)** e acordos de tratamento de dados com a Jotform e a Google.
 7. **Verificação em dois passos** para Master e CAF (Identity Platform).
+8. **Login por código numérico** (OTP por email) em vez de link: requer função no servidor e serviço de email.
