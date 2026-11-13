@@ -97,6 +97,11 @@ describe('tesoureiro de Caldas da Rainha', () => {
     await assertFails(getDoc(doc(as(TES_CDR), 'custos_fixos', 'cdr-vencimentos')));
     await assertSucceeds(getDoc(doc(as(TES_CDR), 'custos_fixos', 'cdr-renda')));
   });
+  it('consulta custos fixos só até ao seu nível', async () => {
+    const db = as(TES_CDR);
+    await assertSucceeds(getDocs(query(collection(db, 'custos_fixos'), where('nivel', 'in', ['publico', 'privado']), where('comunidadeId', 'in', ['caldas-da-rainha']))));
+    await assertFails(getDocs(query(collection(db, 'custos_fixos'), where('nivel', 'in', ['publico', 'privado', 'confidencial']), where('comunidadeId', 'in', ['caldas-da-rainha']))));
+  });
   it('importa para a sua comunidade, não para outras', async () => {
     await assertSucceeds(setDoc(doc(as(TES_CDR), 'lotes', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
     await assertFails(setDoc(doc(as(TES_CDR), 'lotes', 'w'), { comunidadeId: 'almada', periodo: '2026-04', registos: [] }));
