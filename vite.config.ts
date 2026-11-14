@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Publicado em https://cclx-pt.github.io/caf-portal/
+// Publicado em https://cclx-pt.github.io/poc-portalcaf/
 export default defineConfig({
-  base: '/caf-portal/',
+  base: '/poc-portalcaf/',
   plugins: [react()],
   build: { chunkSizeWarningLimit: 2000 },
 });

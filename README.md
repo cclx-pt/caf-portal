@@ -3,8 +3,8 @@
 Portal de gestão financeira do **Conselho Administrativo e Financeiro (CAF)** da CCLX (NIF 592015246).
 Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e cinzentos; Montserrat).
 
-- **Aplicação:** https://cclx-pt.github.io/caf-portal/
-- **Página pública (sem login):** https://cclx-pt.github.io/caf-portal/#/publico
+- **Aplicação:** https://cclx-pt.github.io/poc-portalcaf/
+- **Página pública (sem login):** https://cclx-pt.github.io/poc-portalcaf/#/publico
 - **Firebase:** projeto `cclx-caf-portal` (Firestore em `europe-west1`, plano gratuito Spark)
 
 ## O que faz
@@ -67,7 +67,7 @@ A chave da API Jotform é lida do Firestore (`segredos/jotform`, guardada pelo M
 
 1. Google Cloud Console → projeto `cclx-caf-portal` → IAM e administrador → Contas de serviço → Criar conta de serviço (`caf-sync`), com a função **Utilizador do Cloud Datastore** (`roles/datastore.user`).
 2. Na conta criada → Chaves → Adicionar chave → JSON (descarrega um ficheiro).
-3. GitHub → `cclx-pt/caf-portal` → Settings → Secrets and variables → Actions → New repository secret: nome `FIREBASE_SERVICE_ACCOUNT`, valor = conteúdo do ficheiro JSON. Depois apagar o ficheiro do computador.
+3. GitHub → `cclx-pt/poc-portalcaf` → Settings → Secrets and variables → Actions → New repository secret: nome `FIREBASE_SERVICE_ACCOUNT`, valor = conteúdo do ficheiro JSON. Depois apagar o ficheiro do computador.
 
 Alternativa sem chave (mais segura, mais passos): Workload Identity Federation entre o GitHub e o Google Cloud.
 
@@ -75,7 +75,7 @@ Alternativa sem chave (mais segura, mais passos): Workload Identity Federation e
 
 ```bash
 npm ci
-npm run dev          # http://localhost:5173/caf-portal/
+npm run dev          # http://localhost:5173/poc-portalcaf/
 npm test             # lógica: importação, resumos, extratos
 npm run test:rules   # regras de segurança no emulador (precisa de Java)
 npm run build
