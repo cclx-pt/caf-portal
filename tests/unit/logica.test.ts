@@ -39,9 +39,11 @@ describe('comunidades', () => {
 
 describe('importação Jotform', () => {
   const linhas = [
-    { 'Submission Date': '2026-03-02 10:00:00', 'Submission ID': '1', 'Nome ': 'Ana Silva', Comunidade: 'Caldas da Rainha', 'Valor (€)': '50,00', 'Nº Contribuinte (NIF)': '123456789', 'E-mail': 'ana@x.pt', Categoria: 'Dízimo' },
-    { 'Submission Date': '2026-03-09 10:00:00', 'Submission ID': '2', 'Nome ': 'Rui', Comunidade: 'Almada', 'Valor (€)': '20', Categoria: 'Oferta' },
-    { 'Submission Date': 'xx', 'Submission ID': '3', Comunidade: 'Almada', 'Valor (€)': '20' },
+    { 'Submission Date': '2026-03-02 10:00:00', 'Submission ID': '1', 'Nome ': 'Ana Silva', Comunidade: 'Caldas da Rainha', 'Valor (€)': '50,00', 'Nº Contribuinte (NIF)': '123456789', 'E-mail': 'ana@x.pt', Categoria: 'Dízimo', PAGO: 'PAGO' },
+    { 'Submission Date': '2026-03-09 10:00:00', 'Submission ID': '2', 'Nome ': 'Rui', Comunidade: 'Almada', 'Valor (€)': '20', Categoria: 'Oferta', PAGO: 'pago' },
+    { 'Submission Date': 'xx', 'Submission ID': '3', Comunidade: 'Almada', 'Valor (€)': '20', PAGO: 'PAGO' },
+    { 'Submission Date': '2026-03-10 10:00:00', 'Submission ID': '4', Comunidade: 'Almada', 'Valor (€)': '99', PAGO: 'PENDENTE' },
+    { 'Submission Date': '2026-03-11 10:00:00', 'Submission ID': '5', Comunidade: 'Almada', 'Valor (€)': '77' },
   ];
   it('sugere o mapa de colunas', () => {
     const m = sugerirMapa(FONTES.contribuir, Object.keys(linhas[0]));
@@ -49,6 +51,13 @@ describe('importação Jotform', () => {
     expect(m.valor).toBe('Valor (€)');
     expect(m.pessoa).toBe('Nome ');
     expect(m.nif).toBe('Nº Contribuinte (NIF)');
+    expect(m.pago).toBe('PAGO');
+  });
+  it('só conta contribuições com PAGO = "PAGO"', () => {
+    const m = sugerirMapa(FONTES.contribuir, Object.keys(linhas[0]));
+    const r = mapearLinhas('contribuir', linhas, m);
+    expect(r.registos.map((x) => x.id)).toEqual(['1', '2']);
+    expect(r.naoPagas).toBe(2); // PENDENTE e vazio
   });
   it('anonimiza no nível privado', async () => {
     const m = sugerirMapa(FONTES.contribuir, Object.keys(linhas[0]));
@@ -69,8 +78,9 @@ describe('importação Jotform', () => {
       '3': { text: 'Comunidade', type: 'control_dropdown', answer: 'Porto' },
       '4': { text: 'Dia', type: 'control_datetime', answer: { day: '03', month: '05', year: '2026' } },
       '5': { text: 'Enviar', type: 'control_button' },
+      '6': { text: '', name: 'PAGO', type: 'control_hidden', answer: 'PAGO' },
     } });
-    expect(l).toEqual({ 'Submission ID': '9', 'Submission Date': '2026-05-01 09:00:00', Comunidade: 'Porto', Dia: '2026-05-03' });
+    expect(l).toEqual({ 'Submission ID': '9', 'Submission Date': '2026-05-01 09:00:00', Comunidade: 'Porto', Dia: '2026-05-03', PAGO: 'PAGO' });
   });
 });
 

@@ -2,6 +2,7 @@ import type { Linha } from './fontes';
 
 interface JotAnswer {
   text?: string;
+  name?: string;
   type?: string;
   answer?: unknown;
   prettyFormat?: string;
@@ -32,12 +33,15 @@ export function achatar(s: JotSubmission): Linha {
   const linha: Linha = { 'Submission ID': s.id, 'Submission Date': s.created_at };
   const ordem = Object.entries(s.answers ?? {}).sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [, a] of ordem) {
-    if (!a.text || (a.type && IGNORAR.has(a.type))) continue;
+    if (a.type && IGNORAR.has(a.type)) continue;
+    // Campos sem rótulo (ex.: PAGO, campos escondidos) usam o nome interno do Jotform.
+    const rotulo = (a.text ?? '').replace(/<[^>]+>/g, '').trim() || (a.name ?? '').trim();
+    if (!rotulo) continue;
     const v = valorResposta(a);
     if (v === undefined) continue;
-    let k = a.text.replace(/<[^>]+>/g, '').trim();
+    let k = rotulo;
     let i = 2;
-    while (k in linha) k = `${a.text.trim()} (${i++})`;
+    while (k in linha) k = `${rotulo} (${i++})`;
     linha[k] = v;
   }
   return linha;
