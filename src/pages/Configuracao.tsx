@@ -9,6 +9,7 @@ import { formatarIban, ibanValido, limparIban } from '../lib/iban';
 import { usosCategoria, usosComunidade, usosConta } from '../lib/uso';
 import { slug } from '../lib/format';
 import { testarChave, type ResultadoTeste } from '../lib/jotform';
+import { sincronizarAgora } from '../lib/syncWeb';
 
 type Edicao =
   | { tipo: 'comunidade'; novo: boolean; v: Comunidade }
@@ -34,6 +35,21 @@ export default function Configuracao() {
       await auditar(acesso!.email, 'configurar jotform', jot.base);
       setJot({ ...jot, apiKey: '••••••••' }); setMsg('Chave Jotform guardada (só o Master a pode ler). A próxima sincronização automática já a usa.');
     } catch (e) { setMsg(mensagemErro(e)); }
+  }
+  const [syncVersao, setSyncVersao] = useState(0);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [aSincronizar, setASincronizar] = useState(false);
+  async function forcarSync() {
+    if (!confirm('Sincronizar agora com o Jotform? Só são integradas as submissões novas desde a última sincronização.')) return;
+    setASincronizar(true); setSyncMsg('A iniciar…');
+    try {
+      const e = await sincronizarAgora(acesso!, setSyncMsg);
+      const novos = Object.values(e.resultado).reduce((s, r) => s + r.novos, 0);
+      setSyncMsg(e.ok
+        ? (novos ? `Concluído: ${novos} registo${novos === 1 ? '' : 's'} novo${novos === 1 ? '' : 's'} integrado${novos === 1 ? '' : 's'}; resumos recalculados.` : 'Concluído: não havia submissões novas.')
+        : `Terminou com erros: ${e.erros.join('; ')}`);
+    } catch (e) { setSyncMsg(mensagemErro(e)); }
+    finally { setASincronizar(false); setSyncVersao((v) => v + 1); }
   }
   const [teste, setTeste] = useState<ResultadoTeste | null>(null);
   const [aTestar, setATestar] = useState(false);
@@ -206,7 +222,13 @@ export default function Configuracao() {
         <h2>Sincronização automática com o Jotform (só leitura)</h2>
         <p className="small">Formulários: {Object.values(JOTFORM_FORMS).map((f) => `${f.nome} (${f.id})`).join(' · ')}.</p>
         <p className="small">Uma tarefa agendada no GitHub Actions lê os formulários 4 vezes por dia, grava os lotes mensais (sem tocar em meses fechados) e recalcula os resumos e a página pública.</p>
-        <SyncEstado detalhe />
+        <SyncEstado detalhe versao={syncVersao} />
+        {acesso?.papel === 'master' ? (
+          <div className="linha" style={{ alignItems: 'center' }}>
+            <button onClick={forcarSync} disabled={aSincronizar}>{aSincronizar ? 'A sincronizar…' : 'Sincronizar agora'}</button>
+            <span className="small">{syncMsg ?? 'Força uma sincronização já, sem esperar pela próxima automática. Só integra dados novos.'}</span>
+          </div>
+        ) : <p className="muted">A sincronização forçada é feita pelo Master (é o único que acede à chave do Jotform).</p>}
         {acesso?.papel === 'master' && <>
           <p className="small"><b>Decisão tomada:</b> a chave da API fica guardada no Firebase, legível só pelo Master e pela sincronização automática. Use uma chave <b>só de leitura</b> (jotform.com → Definições → API).</p>
           <div className="linha">

@@ -1,11 +1,18 @@
 name: Sincronização automática Jotform
 
-# Lê os formulários Jotform (só leitura) e atualiza o Firestore 4 vezes por dia.
+# Lê os formulários Jotform (só leitura) e integra no Firestore só as submissões novas, 4 vezes por dia.
 # Também pode ser corrida à mão: Actions → "Sincronização automática Jotform" → Run workflow.
+# O modo "completo" relê tudo desde 01/01/2025 e substitui os lotes dos meses abertos.
 on:
   schedule:
     - cron: '23 5,11,17,23 * * *'
   workflow_dispatch:
+    inputs:
+      modo:
+        description: 'incremental (só dados novos) ou completo (reler tudo)'
+        type: choice
+        options: [incremental, completo]
+        default: incremental
 
 concurrency:
   group: sync-jotform
@@ -25,4 +32,5 @@ jobs:
       - name: Sincronizar
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SYNC_MODO: ${{ inputs.modo || 'incremental' }}
         run: npx tsx scripts/sync-jotform.ts

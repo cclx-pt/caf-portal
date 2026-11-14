@@ -56,6 +56,11 @@ Movimentos bancários conciliados com o Jotform não contam duas vezes.
 
 [`scripts/sync-jotform.ts`](scripts/sync-jotform.ts) corre no GitHub Actions ([sync-jotform.yml](.github/workflows/sync-jotform.yml)) às 05:23, 11:23, 17:23 e 23:23 UTC, e também à mão (Actions → *Sincronização automática Jotform* → *Run workflow*). Não precisa do plano Blaze.
 
+- **Só dados novos (incremental):** cada sincronização pede ao Jotform apenas as submissões criadas depois da última integrada (marcador por formulário em `estado/sync`) e acrescenta-as aos lotes mensais, sem duplicar (chave = ID da submissão) e sem reescrever o que já existe. Meses fechados nunca são alterados. Só os anos com dados novos são recalculados.
+- **Sincronização forçada:** o Master pode correr a mesma sincronização na hora, no portal (Configuração → *Sincronizar agora*). Usa o mesmo motor ([`src/lib/sync.ts`](src/lib/sync.ts)).
+- **Sem sobreposições:** enquanto uma sincronização corre, outra não arranca (bloqueio de 20 minutos em `estado/sync`).
+- **Modo completo:** só à mão no GitHub (Run workflow → modo *completo*). Relê tudo desde 01/01/2025 e substitui os lotes dos meses abertos, o que também remove submissões apagadas no Jotform. As submissões editadas no Jotform depois de integradas só são atualizadas neste modo.
+
 1. Lê os 4 formulários desde 01/01/2025 (só leitura).
 2. Grava lotes mensais por comunidade (confidencial e privado), sem tocar em meses fechados, e remove lotes de submissões apagadas.
 3. Recalcula resumos e página pública.

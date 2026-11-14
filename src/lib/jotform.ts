@@ -48,7 +48,7 @@ export interface JotConfig {
   base: string; // https://eu-api.jotform.com ou https://api.jotform.com
 }
 
-/** Lê todas as submissões ativas de um formulário desde uma data (só leitura). */
+/** Lê as submissões ativas de um formulário criadas depois de `desde` (AAAA-MM-DD ou AAAA-MM-DD hh:mm:ss). Só leitura. */
 export async function lerSubmissoes(cfg: JotConfig, formId: string, desde: string, onProgresso?: (n: number) => void): Promise<Linha[]> {
   const out: Linha[] = [];
   const limit = 1000;
@@ -58,7 +58,7 @@ export async function lerSubmissoes(cfg: JotConfig, formId: string, desde: strin
       limit: String(limit),
       offset: String(offset),
       orderby: 'created_at',
-      filter: JSON.stringify({ 'created_at:gt': `${desde} 00:00:00` }),
+      filter: JSON.stringify({ 'created_at:gt': desde.length === 10 ? `${desde} 00:00:00` : desde }),
     });
     const res = await fetch(`${cfg.base.replace(/\/$/, '')}/form/${formId}/submissions?${params}`);
     if (!res.ok) throw new Error(`Jotform respondeu ${res.status}. Verifique a chave e o servidor (EU ou global).`);
