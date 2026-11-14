@@ -1,0 +1,131 @@
+rules_version = '2';
+
+// Portal CAF (CCLX): regras de segurança.
+// A privacidade é imposta aqui, não no ecrã.
+//
+// Perfis: master, caf, tesoureiro, leitura.
+// Níveis: publico (0), privado (1), confidencial (2).
+// Os perfis vivem em /users/{email}. Os Master estão fixos nesta lista.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- identidade ----------
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isMaster() {
+      return signedIn() && myEmail() in [
+        'tesouraria@cclx.pt',
+        'ricardoribeiro9@gmail.com',
+        'ricardoribeiro9@googlemail.com'
+      ];
+    }
+    function profilePath() { return /databases/$(database)/documents/users/$(myEmail()); }
+    function hasProfile() { return signedIn() && exists(profilePath()); }
+    function profile() { return get(profilePath()).data; }
+    function isActive() { return isMaster() || (hasProfile() && profile().ativo == true); }
+    function papel() { return isMaster() ? 'master' : profile().papel; }
+    function hasRole(roles) { return isActive() && papel() in roles; }
+
+    function nivelNum(n) { return n == 'confidencial' ? 2 : (n == 'privado' ? 1 : 0); }
+    function myNivel() { return isMaster() ? 2 : nivelNum(profile().nivel); }
+    function allScope() { return isMaster() || profile().comunidades.hasAny(['*']); }
+    function inScope(c) { return allScope() || profile().comunidades.hasAny([c]); }
+
+    // Quem pode alterar dados de uma comunidade: master e CAF (todas), tesoureiro (a sua).
+    function canWriteCommunity(c) {
+      return hasRole(['master', 'caf']) || (hasRole(['tesoureiro']) && inScope(c));
+    }
+    // Meses fechados só podem ser alterados pelo master.
+    function periodOpen(p) {
+      return isMaster()
+        || !exists(/databases/$(database)/documents/fechos/$(p))
+        || get(/databases/$(database)/documents/fechos/$(p)).data.estado != 'fechado';
+    }
+
+    // ---------- utilizadores ----------
+    match /users/{email} {
+      allow read: if isMaster() || hasRole(['caf']) || (signedIn() && myEmail() == email);
+      allow write: if isMaster();
+    }
+
+    // ---------- configuração ----------
+    match /comunidades/{id} { allow read: if isActive(); allow write: if isMaster(); }
+    match /contas/{id}      { allow read: if hasRole(['master', 'caf']); allow write: if isMaster(); }
+    match /categorias/{id}  {
+      allow read: if isActive();
+      allow create, update: if hasRole(['master', 'caf', 'tesoureiro']);
+      allow delete: if isMaster();
+    }
+
+    // ---------- dados de origem (Jotform), em lotes mensais ----------
+    // Confidencial: com nomes, NIF, email, IBAN.
+    match /lotes_conf/{id} {
+      allow read: if isActive() && myNivel() >= 2 && inScope(resource.data.comunidadeId);
+      allow create, update: if canWriteCommunity(request.resource.data.comunidadeId)
+        && periodOpen(request.resource.data.periodo);
+      allow delete: if hasRole(['master', 'caf']) && periodOpen(resource.data.periodo);
+    }
+    // Privado: sem dados pessoais (pseudónimos).
+    match /lotes/{id} {
+      allow read: if isActive() && myNivel() >= 1 && inScope(resource.data.comunidadeId);
+      allow create, update: if canWriteCommunity(request.resource.data.comunidadeId)
+        && periodOpen(request.resource.data.periodo);
+      allow delete: if hasRole(['master', 'caf']) && periodOpen(resource.data.periodo);
+    }
+
+    // ---------- bancos (contas centrais): só master e CAF ----------
+    match /banco_lotes/{id} {
+      allow read: if hasRole(['master', 'caf']);
+      allow create, update: if hasRole(['master', 'caf']) && periodOpen(request.resource.data.periodo);
+      allow delete: if hasRole(['master', 'caf']) && periodOpen(resource.data.periodo);
+    }
+
+    // ---------- custos fixos ----------
+    match /custos_fixos/{id} {
+      allow read: if isActive() && myNivel() >= nivelNum(resource.data.nivel) && inScope(resource.data.comunidadeId);
+      allow create, update: if canWriteCommunity(request.resource.data.comunidadeId);
+      allow delete: if canWriteCommunity(resource.data.comunidadeId);
+    }
+
+    // ---------- resumos calculados ----------
+    match /resumos/{id} {
+      allow read: if isActive() && myNivel() >= 1 && inScope(resource.data.comunidadeId);
+      allow write: if hasRole(['master', 'caf']);
+    }
+    // Página pública: sem login.
+    match /publico/{id} {
+      allow read: if true;
+      allow write: if hasRole(['master', 'caf']);
+    }
+
+    // ---------- orçamento, fechos ----------
+    match /orcamentos/{id} {
+      allow read: if isActive() && myNivel() >= 1;
+      allow write: if hasRole(['master', 'caf']);
+    }
+    match /orcamentos_versoes/{id} {
+      allow read: if isActive() && myNivel() >= 1;
+      allow create: if hasRole(['master', 'caf']);
+    }
+    match /fechos/{periodo} {
+      allow read: if isActive();
+      allow write: if hasRole(['master', 'caf']);
+    }
+
+    // ---------- auditoria: só acrescentar ----------
+    match /auditoria/{id} {
+      allow read: if hasRole(['master', 'caf']);
+      allow create: if isActive() && request.resource.data.quem == myEmail();
+    }
+
+    // ---------- segredos (PoC): só master ----------
+    match /segredos/{id} {
+      allow read, write: if isMaster();
+    }
+  }
+}
