@@ -20,12 +20,27 @@ export const SYNC_DESDE = '2025-01-01';
 export const ORIGENS_SYNC: Origem[] = ['contribuir', 'depositos', 'despesas', 'assistencia'];
 /** Uma sincronização "em curso" há mais do que isto é considerada abandonada. */
 export const BLOQUEIO_MIN = 20;
+/**
+ * Dias a reler antes do marcador, por formulário. No CONTRIBUIR uma contribuição pode passar a
+ * PAGO depois de submetida; relendo os últimos 30 dias, entra assim que estiver paga
+ * (sem duplicar: a chave é o ID da submissão).
+ */
+export const RELER_DIAS: Partial<Record<Origem, number>> = { contribuir: 30 };
+
+/** Recua `dias` a uma data do Jotform (AAAA-MM-DD hh:mm:ss). */
+export function recuar(marcador: string, dias: number): string {
+  const d = new Date(marcador.replace(' ', 'T') + 'Z');
+  d.setUTCDate(d.getUTCDate() - dias);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
 
 export interface ResultadoOrigem {
   submissoes: number;
   registos: number;
   novos: number;
   rejeitadas: number;
+  /** Entradas ignoradas por não terem PAGO = "PAGO". */
+  naoPagas?: number;
   lotes: number;
   mesesFechadosIgnorados: number;
   removidos: number;
@@ -101,7 +116,11 @@ async function sincronizarOrigem(
   marcador: string | undefined,
   anosTocados: Set<number>,
 ): Promise<{ resultado: ResultadoOrigem; marcador?: string }> {
-  const desde = modo === 'completo' || !marcador ? SYNC_DESDE : marcador;
+  let desde = modo === 'completo' || !marcador ? SYNC_DESDE : marcador;
+  if (desde !== SYNC_DESDE && RELER_DIAS[origem]) {
+    desde = recuar(desde, RELER_DIAS[origem]!);
+    if (desde < SYNC_DESDE) desde = SYNC_DESDE;
+  }
   const linhas = await lerSubmissoes(cfg, JOTFORM_FORMS[origem].id, desde);
   const novoMarcador = marcadorMaisRecente(linhas, modo === 'completo' ? undefined : marcador);
   const vazio: ResultadoOrigem = { submissoes: 0, registos: 0, novos: 0, rejeitadas: 0, lotes: 0, mesesFechadosIgnorados: 0, removidos: 0 };
@@ -111,7 +130,7 @@ async function sincronizarOrigem(
   const mapa = sugerirMapa(FONTES[origem], colunas);
   const falta = FONTES[origem].campos.filter((c) => c.obrigatorio && !mapa[c.key]).map((c) => c.label);
   if (linhas.length && falta.length) throw new Error(`colunas obrigatórias não encontradas (${falta.join(', ')})`);
-  const { registos, rejeitadas } = linhas.length ? mapearLinhas(origem, linhas, mapa) : { registos: [], rejeitadas: [] };
+  const { registos, rejeitadas, naoPagas } = linhas.length ? mapearLinhas(origem, linhas, mapa) : { registos: [], rejeitadas: [], naoPagas: 0 };
   const validos = registos.filter((r) => r.data >= SYNC_DESDE);
   const { conf, priv } = await construirLotes(origem, validos, quem);
   const temConf = origem !== 'assistencia';
@@ -151,7 +170,7 @@ async function sincronizarOrigem(
   }
   if (ops.length) await arm.gravarLotes(ops);
   return {
-    resultado: { submissoes: linhas.length, registos: validos.length, novos, rejeitadas: rejeitadas.length, lotes: ops.filter((o) => o.col === 'lotes' && !o.apagar).length, mesesFechadosIgnorados, removidos },
+    resultado: { submissoes: linhas.length, registos: validos.length, novos, rejeitadas: rejeitadas.length, naoPagas, lotes: ops.filter((o) => o.col === 'lotes' && !o.apagar).length, mesesFechadosIgnorados, removidos },
     marcador: novoMarcador,
   };
 }

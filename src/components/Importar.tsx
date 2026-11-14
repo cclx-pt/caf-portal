@@ -81,6 +81,7 @@ export function Importar({ origem, onFeito, onFechar }: { origem: Origem; onFeit
         <h2 style={{ marginTop: 16 }}>Pré-visualização</h2>
         <p className="small">
           {aGravar.length} registos a gravar desde {HISTORICO_DESDE}
+          {resultado.naoPagas ? ` · ${resultado.naoPagas} por pagar (PAGO ≠ "PAGO"), não contam` : ''}
           {resultado.rejeitadas.length ? ` · ${resultado.rejeitadas.length} linhas rejeitadas (ex.: linha ${resultado.rejeitadas[0].linha}: ${resultado.rejeitadas[0].motivo})` : ''}
           {foraDoAmbito.length ? ` · ${foraDoAmbito.length} de outras comunidades ignorados (fora do seu âmbito)` : ''}
         </p>

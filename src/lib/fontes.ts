@@ -34,6 +34,8 @@ export const FONTES: Record<Origem, FonteDef> = {
       { key: 'nif', label: 'NIF', padroes: ['contribuinte nif', 'nif', 'contribuinte'], pessoal: true },
       { key: 'email', label: 'E-mail', padroes: ['e mail', 'email'], pessoal: true },
       { key: 'telefone', label: 'Telemóvel', padroes: ['telemovel', 'telefone'], pessoal: true },
+      // Só contam as contribuições com PAGO = "PAGO" (regra do CAF).
+      { key: 'pago', label: 'Pago', padroes: ['pago', 'estado do pagamento', 'payment status'], obrigatorio: true },
     ],
   },
   depositos: {
@@ -123,14 +125,21 @@ const PESSOAIS = ['pessoa', 'nif', 'email', 'telefone', 'iban'] as const;
 export interface ResultadoMapa {
   registos: (Registo & { comunidadeId: string })[];
   rejeitadas: { linha: number; motivo: string }[];
+  /** Entradas (CONTRIBUIR) ignoradas por não terem PAGO = "PAGO". */
+  naoPagas: number;
 }
+
+/** Entradas: só conta a contribuição se o campo PAGO tiver o valor "PAGO". */
+export const estaPago = (v: unknown) => norm(v) === 'pago';
 
 let seq = 0;
 export function mapearLinhas(origem: Origem, linhas: Linha[], mapa: Record<string, string>): ResultadoMapa {
   const registos: ResultadoMapa['registos'] = [];
   const rejeitadas: ResultadoMapa['rejeitadas'] = [];
   const get = (l: Linha, k: string) => (mapa[k] ? l[mapa[k]] : undefined);
+  let naoPagas = 0;
   linhas.forEach((l, i) => {
+    if (origem === 'contribuir' && !estaPago(get(l, 'pago'))) { naoPagas++; return; }
     const data = parseData(get(l, 'data'));
     if (!data) { rejeitadas.push({ linha: i + 2, motivo: 'data inválida' }); return; }
     const valorBruto = origem === 'assistencia' ? get(l, 'adultos') : get(l, 'valor');
@@ -155,7 +164,7 @@ export function mapearLinhas(origem: Origem, linhas: Linha[], mapa: Record<strin
     if (Object.keys(extra).length) r.extra = extra;
     registos.push(r);
   });
-  return { registos, rejeitadas };
+  return { registos, rejeitadas, naoPagas };
 }
 
 const SAL = 'cclx-caf-portal';

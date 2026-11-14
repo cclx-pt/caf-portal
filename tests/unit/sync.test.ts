@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SyncEmCurso, fundirLote, marcadorMaisRecente, sincronizar, type ArmazemSync, type EstadoSync } from '../../src/lib/sync';
+import { SyncEmCurso, fundirLote, marcadorMaisRecente, recuar, sincronizar, type ArmazemSync, type EstadoSync } from '../../src/lib/sync';
 import { JOTFORM_FORMS } from '../../src/lib/seed';
 import type { Lote } from '../../src/lib/types';
 
 /** Jotform falso: devolve as submissões criadas depois do filtro created_at:gt. */
-function jotformFalso(subs: Record<string, { id: string; created_at: string; comunidade: string; valor: string; nome: string }[]>) {
+type Sub = { id: string; created_at: string; comunidade: string; valor: string; nome: string; pago?: string };
+function jotformFalso(subs: Record<string, Sub[]>) {
   const chamadas: { form: string; desde: string }[] = [];
   const fetchFalso = vi.fn(async (url: string) => {
     const u = new URL(url);
@@ -18,6 +19,7 @@ function jotformFalso(subs: Record<string, { id: string; created_at: string; com
         '2': { text: 'Comunidade', type: 'control_dropdown', answer: s.comunidade },
         '3': { text: 'Valor (€)', type: 'control_number', answer: s.valor },
         '4': { text: 'Categoria', type: 'control_dropdown', answer: 'Dízimo' },
+        '5': { text: '', name: 'PAGO', type: 'control_hidden', answer: s.pago ?? 'PAGO' },
       },
     }));
     return { ok: true, status: 200, json: async () => ({ responseCode: 200, content: lista }) } as Response;
@@ -88,7 +90,7 @@ describe('sincronização incremental', () => {
     // Sem novidades: não escreve nem recalcula.
     j.chamadas.length = 0; m.recalculados.length = 0;
     const e2 = await sincronizar(m.arm, CFG, 'teste');
-    expect(j.chamadas.find((c) => c.form === F)!.desde).toBe('2026-03-09 10:00:00');
+    expect(j.chamadas.find((c) => c.form === F)!.desde).toBe('2026-02-07 10:00:00'); // relê 30 dias
     expect(e2.resultado.contribuir.novos).toBe(0);
     expect(m.recalculados).toEqual([]);
 
@@ -96,12 +98,45 @@ describe('sincronização incremental', () => {
     subs[F].push({ id: 'c', created_at: '2026-03-20 12:00:00', comunidade: 'Almada', valor: '5', nome: 'Eva' });
     const e3 = await sincronizar(m.arm, CFG, 'teste');
     expect(e3.resultado.contribuir.novos).toBe(1);
-    expect(e3.resultado.contribuir.submissoes).toBe(1);
     const l = m.cols.lotes.get('contribuir_2026_03_almada')!;
     expect(l.n).toBe(3);
     expect(l.total).toBe(75);
     expect(new Set(l.registos.map((r) => r.id)).size).toBe(3);
     expect(m.estado()?.emCurso).toBeNull();
+  });
+
+  it('recua o marcador', () => {
+    expect(recuar('2026-03-09 10:00:00', 30)).toBe('2026-02-07 10:00:00');
+  });
+
+  it('só integra contribuições pagas; uma que passa a PAGO depois entra na sincronização seguinte', async () => {
+    const subs: Record<string, Sub[]> = { [F]: [
+      { id: 'a', created_at: '2026-03-02 10:00:00', comunidade: 'Almada', valor: '50', nome: 'Ana', pago: 'PAGO' },
+      { id: 'b', created_at: '2026-03-03 10:00:00', comunidade: 'Almada', valor: '20', nome: 'Rui', pago: 'PENDENTE' },
+    ] };
+    vi.stubGlobal('fetch', jotformFalso(subs).fetchFalso);
+    const m = armazemMemoria();
+    const e1 = await sincronizar(m.arm, CFG, 'teste');
+    expect(e1.resultado.contribuir.novos).toBe(1);
+    expect(e1.resultado.contribuir.naoPagas).toBe(1);
+    expect(m.cols.lotes.get('contribuir_2026_03_almada')!.total).toBe(50);
+
+    subs[F][1].pago = 'PAGO'; // pagamento confirmado mais tarde (sem nova submissão)
+    const e2 = await sincronizar(m.arm, CFG, 'teste');
+    expect(e2.resultado.contribuir.novos).toBe(1);
+    expect(m.cols.lotes.get('contribuir_2026_03_almada')!.total).toBe(70);
+  });
+
+  it('sem o campo PAGO não integra nada e dá erro', async () => {
+    const semPago = vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => ({ responseCode: 200, content: !url.includes(F) ? [] : [
+      { id: 'a', created_at: '2026-03-02 10:00:00', status: 'ACTIVE', answers: { '2': { text: 'Comunidade', answer: 'Almada' }, '3': { text: 'Valor (€)', answer: '50' } } },
+    ] }) }) as Response);
+    vi.stubGlobal('fetch', semPago);
+    const m = armazemMemoria();
+    const e = await sincronizar(m.arm, CFG, 'teste');
+    expect(e.ok).toBe(false);
+    expect(e.erros.join()).toMatch(/contribuir: .*Pago/);
+    expect([...m.cols.lotes.keys()].filter((k) => k.startsWith('contribuir'))).toEqual([]);
   });
 
   it('não toca em meses fechados', async () => {
