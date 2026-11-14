@@ -18,13 +18,13 @@ export type Acao = 'importar' | 'bancos' | 'aprovar' | 'configurar' | 'utilizado
 
 const PERMISSOES: Record<Acao, Papel[]> = {
   importar: ['master', 'caf', 'tesoureiro'],
-  custos: ['master', 'caf', 'tesoureiro'],
+  custos: ['master', 'caf'],
   bancos: ['master', 'caf'],
   aprovar: ['master', 'caf'],
   publicar: ['master', 'caf'],
   auditoria: ['master', 'caf'],
   exportar: ['master', 'caf'],
-  configurar: ['master'],
+  configurar: ['master', 'caf'],
   utilizadores: ['master'],
 };
 

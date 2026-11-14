@@ -18,7 +18,7 @@ Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e 
 | Orçamento | Proposta gerada a partir do histórico, edição, aprovação pelo CAF, versões, previsto vs real com alertas de desvio > 10% |
 | Fecho mensal | O CAF fecha meses (bloqueia alterações) e publica a página pública |
 | Exportação | Excel mensal para o contabilista (movimentos + resumo) |
-| Administração | Utilizadores e perfis, categorias e níveis, ligação ao Jotform, auditoria |
+| Administração | CRUD de comunidades, contas bancárias (com IBAN validado) e categorias; utilizadores e perfis; ligação ao Jotform; auditoria |
 
 ## Login
 
@@ -32,8 +32,8 @@ Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e 
 | Perfil | Âmbito | Pode |
 |---|---|---|
 | Master (`tesouraria@cclx.pt` e a conta do Ricardo Ribeiro) | Toda a CCLX | Tudo |
-| CAF | Toda a CCLX | O mesmo que o tesoureiro + aprovar orçamento, fechar meses, publicar, bancos |
-| Tesoureiro | A sua comunidade | Importar, classificar, custos fixos |
+| CAF | Toda a CCLX | Criar, alterar e apagar entidades e custos fixos; importar; bancos; aprovar orçamento; fechar meses; publicar |
+| Tesoureiro | A sua comunidade | Importar dados Jotform da sua comunidade; consultar |
 | Leitura | Comunidades atribuídas | Consultar até ao nível definido |
 
 Níveis: **Público** (sem login, só totais de meses fechados, grupos com menos de 3 registos escondidos, vencimentos dentro de "Custos de funcionamento"), **Privado** (detalhe com pseudónimos, sem nomes/NIF/email/IBAN), **Confidencial** (tudo).
@@ -75,6 +75,9 @@ As regras do Firestore publicam-se com `npx firebase deploy --only firestore:rul
 
 ## Decisões tomadas no PoC
 
+- Só o Master e o CAF alteram entidades (comunidades, contas, categorias) e custos fixos. Entidades com dados associados não se apagam: desativam-se (`ativo = false`) e deixam de aparecer nas listas de escolha, mantendo o histórico. A verificação de dados associados é feita na aplicação; as regras limitam quem pode apagar.
+- A chave da API Jotform fica, por agora, no Firestore (só o Master a lê) e a sincronização corre no browser do Master.
+
 - Plano gratuito (Spark): sem Cloud Functions. Os cálculos e a anonimização correm no browser de quem importa; as regras garantem que cada perfil só lê o seu nível.
 - Alojamento no GitHub Pages (sem credenciais no GitHub) em vez do Firebase Hosting.
 - Lotes mensais por comunidade (um documento por mês, origem e comunidade) para respeitar os limites de escrita do plano gratuito.
@@ -85,7 +88,7 @@ As regras do Firestore publicam-se com `npx firebase deploy --only firestore:rul
 
 ## Decisões críticas pendentes
 
-1. **Chave da API Jotform:** no PoC fica no Firestore (só o Master a lê) e a sincronização corre no browser. Em produção: plano Blaze, Cloud Function agendada e Secret Manager.
+1. **Chave da API Jotform (evolução):** decidido manter no Firestore por agora. Quando houver plano Blaze: Cloud Function agendada e Secret Manager.
 2. **Plano Blaze:** necessário para sincronização automática, cópias de segurança agendadas e cálculos no servidor (dados confidenciais deixam de passar pelo browser).
 3. **Propriedade do projeto Firebase:** adicionar `tesouraria@cclx.pt` como Owner (hoje está numa conta pessoal).
 4. **Sal dos pseudónimos:** mover para um segredo no servidor (com o sal público, um pseudónimo pode ser confirmado por quem já conhece o NIF/email).

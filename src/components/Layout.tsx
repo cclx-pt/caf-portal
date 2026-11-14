@@ -11,7 +11,7 @@ export default function Layout() {
   const { ano, setAno, comunidade, setComunidade } = useFiltros();
   const { dados: comunidades } = useCarregar(listarComunidades, []);
   const anoAtual = new Date().getFullYear();
-  const visiveis = (comunidades ?? []).filter((c) => acesso?.comunidades.includes('*') || acesso?.comunidades.includes(c.id));
+  const visiveis = (comunidades ?? []).filter((c) => c.ativo !== false && (acesso?.comunidades.includes('*') || acesso?.comunidades.includes(c.id)));
 
   return (
     <div className="app">

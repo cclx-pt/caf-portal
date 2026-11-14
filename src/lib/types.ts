@@ -26,6 +26,7 @@ export interface Comunidade {
   fim?: string | null;
   ordem: number;
   especial?: boolean; // bolsa geral
+  ativo?: boolean; // false = desativada (mantém o histórico)
 }
 
 export interface Conta {
@@ -33,7 +34,9 @@ export interface Conta {
   nome: string;
   banco: string;
   tipo: 'principal' | 'investimentos' | 'corrente';
+  iban?: string;
   etiqueta?: string;
+  ativo?: boolean;
 }
 
 export interface Categoria {
@@ -44,6 +47,7 @@ export interface Categoria {
   nivel: Nivel;
   snc?: string;
   origem?: string; // jotform, portal
+  ativo?: boolean;
 }
 
 /** Um registo individual dentro de um lote mensal. */

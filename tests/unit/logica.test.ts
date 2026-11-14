@@ -143,3 +143,15 @@ describe('extratos bancários', () => {
     expect(s[1].sugestao).toMatch(/bolsa geral/);
   });
 });
+
+import { ibanValido, formatarIban } from '../../src/lib/iban';
+describe('IBAN', () => {
+  it('valida pelo mod 97', () => {
+    expect(ibanValido('PT50 0002 0123 1234 5678 9015 4')).toBe(true);
+    expect(ibanValido('PT50 0002 0123 1234 5678 9015 5')).toBe(false);
+    expect(ibanValido('PT50 0002')).toBe(false);
+  });
+  it('formata em grupos de 4', () => {
+    expect(formatarIban('pt50000201231234567890154')).toBe('PT50 0002 0123 1234 5678 9015 4');
+  });
+});

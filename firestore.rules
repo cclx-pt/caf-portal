@@ -53,14 +53,11 @@ service cloud.firestore {
       allow write: if isMaster();
     }
 
-    // ---------- configuração ----------
-    match /comunidades/{id} { allow read: if isActive(); allow write: if isMaster(); }
-    match /contas/{id}      { allow read: if hasRole(['master', 'caf']); allow write: if isMaster(); }
-    match /categorias/{id}  {
-      allow read: if isActive();
-      allow create, update: if hasRole(['master', 'caf', 'tesoureiro']);
-      allow delete: if isMaster();
-    }
+    // ---------- entidades (configuração): só master e CAF alteram ----------
+    // Apagar só é permitido na aplicação quando a entidade não tem dados; caso contrário desativa-se (ativo = false).
+    match /comunidades/{id} { allow read: if isActive(); allow write: if hasRole(['master', 'caf']); }
+    match /contas/{id}      { allow read: if hasRole(['master', 'caf']); allow write: if hasRole(['master', 'caf']); }
+    match /categorias/{id}  { allow read: if isActive(); allow write: if hasRole(['master', 'caf']); }
 
     // ---------- dados de origem (Jotform), em lotes mensais ----------
     // Confidencial: com nomes, NIF, email, IBAN.
@@ -88,8 +85,7 @@ service cloud.firestore {
     // ---------- custos fixos ----------
     match /custos_fixos/{id} {
       allow read: if isActive() && myNivel() >= nivelNum(resource.data.nivel) && inScope(resource.data.comunidadeId);
-      allow create, update: if canWriteCommunity(request.resource.data.comunidadeId);
-      allow delete: if canWriteCommunity(resource.data.comunidadeId);
+      allow write: if hasRole(['master', 'caf']);
     }
 
     // ---------- resumos calculados ----------

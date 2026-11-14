@@ -90,7 +90,7 @@ export default function Bancos() {
       </div>
       {msg && <div className="nota">{msg}</div>}
       <div className="acoes">
-        {(contas.dados ?? []).map((c) => (
+        {(contas.dados ?? []).filter((c) => c.ativo !== false).map((c) => (
           <button key={c.id} className={c.id === contaId ? '' : 'sec'} onClick={() => setContaId(c.id)}>
             {c.nome}{c.tipo === 'investimentos' ? ' (Conta investimentos)' : ''}
           </button>
@@ -129,13 +129,13 @@ export default function Bancos() {
                 <td>
                   <select value={m.comunidadeId ?? ''} onChange={(e) => alterar(m.loteId, m.id, { comunidadeId: e.target.value || undefined })}>
                     <option value="">—</option>
-                    {(coms.dados ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    {(coms.dados ?? []).filter((c) => c.ativo !== false || c.id === m.comunidadeId).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                   </select>
                 </td>
                 <td>
                   <select value={m.categoria ?? ''} onChange={(e) => alterar(m.loteId, m.id, { categoria: e.target.value || undefined })}>
                     <option value="">—</option>
-                    {(cats.dados ?? []).filter((c) => (m.valor > 0 ? c.tipo === 'entrada' : c.tipo === 'saida')).map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                    {(cats.dados ?? []).filter((c) => (c.ativo !== false || c.nome === m.categoria) && (m.valor > 0 ? c.tipo === 'entrada' : c.tipo === 'saida')).map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
                   </select>
                 </td>
                 <td><input type="checkbox" checked={m.contabilizar} disabled={!!m.conciliadoCom} onChange={(e) => alterar(m.loteId, m.id, { contabilizar: e.target.checked })} aria-label="Contabilizar movimento" /></td>

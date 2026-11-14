@@ -77,7 +77,7 @@ export default function Utilizadores() {
               <fieldset style={{ marginTop: 12, border: '1px solid #e6e6e6' }}>
                 <legend className="small">Comunidades</legend>
                 {edit.papel === 'leitura' && <label className="small" style={{ marginRight: 12 }}><input type="checkbox" checked={edit.comunidades.includes('*')} onChange={(e) => setEdit({ ...edit, comunidades: e.target.checked ? ['*'] : [] })} /> Todas</label>}
-                {!edit.comunidades.includes('*') && (coms.dados ?? []).filter((c) => !c.especial).map((c) => (
+                {!edit.comunidades.includes('*') && (coms.dados ?? []).filter((c) => !c.especial && (c.ativo !== false || edit.comunidades.includes(c.id))).map((c) => (
                   <label key={c.id} className="small" style={{ marginRight: 12, whiteSpace: 'nowrap' }}>
                     <input type={edit.papel === 'tesoureiro' ? 'radio' : 'checkbox'} name="com" checked={edit.comunidades.includes(c.id)}
                       onChange={(e) => setEdit({ ...edit, comunidades: edit.papel === 'tesoureiro' ? [c.id] : e.target.checked ? [...edit.comunidades, c.id] : edit.comunidades.filter((x) => x !== c.id) })} /> {c.nome}
