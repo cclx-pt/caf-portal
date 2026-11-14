@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { eur, parseData, parseNumero } from '../../src/lib/format';
 import { FONTES, construirLotes, mapearLinhas, resolverComunidade, sugerirMapa } from '../../src/lib/fontes';
-import { calcularPublico, calcularResumos, somarMeses } from '../../src/lib/resumos';
+import { calcularPublico, calcularPublicoSite, calcularResumos, somarMeses } from '../../src/lib/resumos';
 import { mapearExtrato, sugerir, sugerirMapaBanco } from '../../src/lib/banco';
 import { achatar } from '../../src/lib/jotform';
 import { COMUNIDADES, CUSTOS_FIXOS_CDR } from '../../src/lib/seed';
@@ -132,6 +132,23 @@ describe('resumos (caso real de Caldas da Rainha, 2026 até 13/11)', () => {
     expect(porto.meses[0].entradas).toBeNull();
     expect(porto.meses[1].entradas).toBe(60);
     expect(pub.comunidades.find((c) => c.id === 'bolsa-geral')).toBeUndefined();
+  });
+
+  it('página pública sem login: só o site CCLX consolidado, sem comunidades', () => {
+    const resumos = calcularResumos({
+      ano: 2026, comunidades: COMUNIDADES,
+      // Porto e Almada têm 2 registos cada em janeiro (escondidos por comunidade), 4 no total (mostrado no consolidado).
+      contribuir: [lote('contribuir', 'porto', 1, [10, 20]), lote('contribuir', 'almada', 1, [5, 5]), lote('contribuir', 'porto', 2, [1])],
+      depositos: [], despesas: [], assistencia: [], banco: [], custosFixos: [], mesesFechados: new Set(), hoje: '2026-11-13',
+    });
+    const fechados = new Set(['2026-01', '2026-02']);
+    const site = calcularPublicoSite(2026, resumos, fechados);
+    expect(site.site.nome).toBe('CCLX');
+    expect('comunidades' in site).toBe(false);
+    expect(site.site.meses[0].entradas).toBe(40);
+    expect(site.site.meses[1].entradas).toBeNull(); // 1 registo no total
+    const porComunidade = calcularPublico(2026, resumos, COMUNIDADES, fechados);
+    expect(porComunidade.comunidades.find((c) => c.id === 'porto')!.meses[0].entradas).toBeNull();
   });
 });
 

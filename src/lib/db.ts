@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type {
-  BancoLote, Categoria, Comunidade, Conta, CustoFixo, Fecho, Lote, Nivel, Orcamento, Origem, Perfil, Publico, Resumo,
+  BancoLote, Categoria, Comunidade, Conta, CustoFixo, Fecho, Lote, Nivel, Orcamento, Origem, Perfil, Publico, PublicoSite, Resumo,
 } from './types';
 import { NIVEIS, nivelNum } from './types';
 
@@ -102,8 +102,14 @@ export function listarCustosFixos(a: Acesso): Promise<CustoFixo[]> {
 
 // ---------- resumos ----------
 export const listarResumos = (a: Acesso, ano: number) => lista<Resumo>('resumos', where('ano', '==', ano), ...porComunidade(a));
-export async function lerPublico(ano: number): Promise<Publico | null> {
+/** Visão do site CCLX (consolidada): aberta, sem login. */
+export async function lerPublico(ano: number): Promise<PublicoSite | null> {
   const s = await getDoc(doc(db, 'publico', String(ano)));
+  return s.exists() && (s.data() as PublicoSite).site ? (s.data() as PublicoSite) : null;
+}
+/** Contas públicas por comunidade: só com login (regras: utilizador ativo). */
+export async function lerPublicoSites(ano: number): Promise<Publico | null> {
+  const s = await getDoc(doc(db, 'publico_sites', String(ano)));
   return s.exists() ? (s.data() as Publico) : null;
 }
 

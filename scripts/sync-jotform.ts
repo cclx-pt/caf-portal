@@ -14,7 +14,7 @@
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldPath, getFirestore } from 'firebase-admin/firestore';
 import { SyncEmCurso, sincronizar, type ArmazemSync, type EstadoSync } from '../src/lib/sync';
-import { calcularPublico, calcularResumos } from '../src/lib/resumos';
+import { calcularPublico, calcularPublicoSite, calcularResumos } from '../src/lib/resumos';
 import type { BancoLote, Comunidade, CustoFixo, Lote, Origem } from '../src/lib/types';
 
 const QUEM = 'sync-automatico';
@@ -100,7 +100,8 @@ const armazem: ArmazemSync = {
     const publico = calcularPublico(ano, resumos, comunidades, mesesFechados);
     const b = db.batch();
     for (const r of resumos) b.set(db.collection('resumos').doc(r.id), { ...r, calculadoPor: QUEM });
-    b.set(db.collection('publico').doc(String(ano)), publico);
+    b.set(db.collection('publico').doc(String(ano)), calcularPublicoSite(ano, resumos, mesesFechados)); // aberto: só CCLX
+    b.set(db.collection('publico_sites').doc(String(ano)), publico); // com login: por comunidade
     await b.commit();
   },
   async auditar(quem, acao, detalhe) {
