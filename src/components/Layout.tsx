@@ -20,7 +20,8 @@ export default function Layout() {
         <NavLink to="/" end>Painel</NavLink>
         {temNivel('privado') && <>
           <div className="grupo">Dados (Jotform)</div>
-          <NavLink to="/entradas">Entradas</NavLink>
+          <NavLink to="/entradas-conjunto">Entradas: contribuições e depósitos</NavLink>
+          <NavLink to="/entradas">Contribuições</NavLink>
           <NavLink to="/depositos">Depósitos de coletas</NavLink>
           <NavLink to="/reembolsos">Reembolsos e despesas</NavLink>
           <NavLink to="/assistencia">Assistência</NavLink>

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { eur, eurK } from '../lib/format';
+import { eur, eurK, num } from '../lib/format';
 
 // ---------- filtros globais (ano e comunidade) ----------
 interface Filtros { ano: number; setAno: (a: number) => void; comunidade: string; setComunidade: (c: string) => void }
@@ -52,20 +52,24 @@ export function Kpi({ titulo, valor, sub, negativo }: { titulo: string; valor: s
 
 // ---------- gráfico de barras em escala de cinzentos ----------
 export const TONS = ['#000000', '#777777', '#333333', '#bdbdbd'];
-export function GraficoBarras({ dados, series, altura = 280, empilhado }: {
+export function GraficoBarras({ dados, series, altura = 280, empilhado, unidade = 'eur' }: {
   dados: Record<string, string | number>[];
   series: { key: string; nome: string; stack?: string }[];
   altura?: number;
   empilhado?: boolean;
+  /** 'pessoas': eixos e dicas sem símbolo de moeda. */
+  unidade?: 'eur' | 'pessoas';
 }) {
+  const fmtEixo = (v: number) => (unidade === 'eur' ? eurK(v) : num(v));
+  const fmtDica = (v: number) => (unidade === 'eur' ? eur(v) : num(v, Number.isInteger(v) ? 0 : 1));
   return (
     <div role="img" aria-label={'Gráfico: ' + series.map((s) => s.nome).join(', ')} style={{ width: '100%', height: altura }}>
       <ResponsiveContainer>
         <BarChart data={dados} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <CartesianGrid stroke="#e6e6e6" vertical={false} />
           <XAxis dataKey="rotulo" tick={{ fontSize: 11, fill: '#333' }} axisLine={{ stroke: '#777' }} tickLine={false} />
-          <YAxis tickFormatter={(v) => eurK(Number(v))} tick={{ fontSize: 11, fill: '#333' }} axisLine={false} tickLine={false} width={80} />
-          <Tooltip cursor={{ fill: '#f2f2f2' }} formatter={(v) => eur(Number(v))} contentStyle={{ border: '1px solid #333', borderRadius: 0, fontSize: 12 }} />
+          <YAxis tickFormatter={(v) => fmtEixo(Number(v))} tick={{ fontSize: 11, fill: '#333' }} axisLine={false} tickLine={false} width={80} />
+          <Tooltip cursor={{ fill: '#f2f2f2' }} formatter={(v) => fmtDica(Number(v))} contentStyle={{ border: '1px solid #333', borderRadius: 0, fontSize: 12 }} />
           <Legend wrapperStyle={{ fontSize: 12 }} iconType="square" />
           {series.map((s, i) => (
             <Bar key={s.key} dataKey={s.key} name={s.nome} fill={TONS[i % TONS.length]} stackId={empilhado ? s.stack ?? 'a' : undefined} />
