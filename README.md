@@ -3,8 +3,8 @@
 Portal de gestão financeira do **Conselho Administrativo e Financeiro (CAF)** da CCLX (NIF 592015246).
 Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e cinzentos; Montserrat).
 
-- **Aplicação:** https://cclx-pt.github.io/poc-portalcaf/
-- **Página pública (sem login):** https://cclx-pt.github.io/poc-portalcaf/#/publico
+- **Aplicação:** https://portalcaf.cclx.pt/
+- **Página pública (sem login):** https://portalcaf.cclx.pt/#/publico
 - **Firebase:** projeto `cclx-caf-portal` (Firestore em `europe-west1`, plano gratuito Spark)
 
 ## O que faz
@@ -75,7 +75,7 @@ Alternativa sem chave (mais segura, mais passos): Workload Identity Federation e
 
 ```bash
 npm ci
-npm run dev          # http://localhost:5173/poc-portalcaf/
+npm run dev          # http://localhost:5173/
 npm test             # lógica: importação, resumos, extratos
 npm run test:rules   # regras de segurança no emulador (precisa de Java)
 npm run build
