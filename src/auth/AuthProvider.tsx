@@ -17,7 +17,7 @@ interface Estado {
 export type Acao = 'importar' | 'bancos' | 'aprovar' | 'configurar' | 'utilizadores' | 'publicar' | 'auditoria' | 'exportar' | 'custos';
 
 const PERMISSOES: Record<Acao, Papel[]> = {
-  importar: ['master', 'caf', 'tesoureiro'],
+  importar: ['master', 'caf'],
   custos: ['master', 'caf'],
   bancos: ['master', 'caf'],
   aprovar: ['master', 'caf'],

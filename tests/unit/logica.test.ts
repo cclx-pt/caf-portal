@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { eur, parseData, parseNumero } from '../../src/lib/format';
 import { FONTES, construirLotes, mapearLinhas, resolverComunidade, sugerirMapa } from '../../src/lib/fontes';
 import { calcularPublico, calcularResumos, somarMeses } from '../../src/lib/resumos';
@@ -153,5 +153,29 @@ describe('IBAN', () => {
   });
   it('formata em grupos de 4', () => {
     expect(formatarIban('pt50000201231234567890154')).toBe('PT50 0002 0123 1234 5678 9015 4');
+  });
+});
+
+import { testarChave } from '../../src/lib/jotform';
+describe('teste da chave Jotform', () => {
+  const forms = [{ id: '1', nome: 'A' }, { id: '2', nome: 'B' }];
+  const resp = (b: unknown) => ({ ok: true, status: 200, statusText: 'OK', json: async () => b }) as Response;
+  afterEach(() => vi.unstubAllGlobals());
+  it('confirma conta e formulários', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => u.includes('/user')
+      ? resp({ responseCode: 200, content: { username: 'cclx', account_type: 'https://api.jotform.com/system/plan/GOLD' } })
+      : u.includes('/form/2') ? resp({ responseCode: 401, message: 'no' }) : resp({ responseCode: 200, content: { title: 'A', count: '42', status: 'ENABLED' } })));
+    const r = await testarChave({ apiKey: 'k', base: 'https://eu-api.jotform.com' }, forms);
+    expect(r.conta?.utilizador).toBe('cclx');
+    expect(r.conta?.plano).toBe('GOLD');
+    expect(r.formularios[0]).toMatchObject({ ok: true, submissoes: 42 });
+    expect(r.formularios[1]).toMatchObject({ ok: false, erro: 'sem acesso com esta chave' });
+    expect(r.ok).toBe(false);
+  });
+  it('sugere o outro servidor quando a chave só funciona lá', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => u.startsWith('https://api.') ? resp({ responseCode: 200, content: {} }) : resp({ responseCode: 401 })));
+    const r = await testarChave({ apiKey: 'k', base: 'https://eu-api.jotform.com' }, forms);
+    expect(r.ok).toBe(false);
+    expect(r.sugestaoServidor).toBe('https://api.jotform.com');
   });
 });

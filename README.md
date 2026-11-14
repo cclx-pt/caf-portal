@@ -3,8 +3,8 @@
 Portal de gestão financeira do **Conselho Administrativo e Financeiro (CAF)** da CCLX (NIF 592015246).
 Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e cinzentos; Montserrat).
 
-- **Aplicação:** https://cclx-pt.github.io/caf-portal/
-- **Página pública (sem login):** https://cclx-pt.github.io/caf-portal/#/publico
+- **Aplicação:** https://cclx-pt.github.io/poc-portalcaf/
+- **Página pública (sem login):** https://cclx-pt.github.io/poc-portalcaf/#/publico
 - **Firebase:** projeto `cclx-caf-portal` (Firestore em `europe-west1`, plano gratuito Spark)
 
 ## O que faz
@@ -12,7 +12,7 @@ Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e 
 | Área | Descrição |
 |---|---|
 | Painel | Custos x entradas por comunidade e consolidado, por mês, com cobertura dos custos fixos |
-| Entradas, Depósitos, Reembolsos, Assistência | Só recebem e apresentam os dados dos formulários Jotform (importação CSV/Excel ou sincronização pela API) |
+| Entradas, Depósitos, Reembolsos, Assistência | Só recebem e apresentam os dados dos formulários Jotform, sincronizados automaticamente 4 vezes por dia (importação manual CSV/Excel como recurso, só Master e CAF) |
 | Bancos e bolsa geral | Importação de extratos CGD e Santander, conciliação automática com o Jotform, ofertas sem comunidade na bolsa geral e distribuição pela assistência de adultos do mesmo mês |
 | Custos fixos | Tabela por comunidade, rubrica e período (início/fim), com nível de privacidade |
 | Orçamento | Proposta gerada a partir do histórico, edição, aprovação pelo CAF, versões, previsto vs real com alertas de desvio > 10% |
@@ -33,7 +33,7 @@ Prova de conceito (PoC) funcional, com a identidade visual CAF (preto, branco e 
 |---|---|---|
 | Master (`tesouraria@cclx.pt` e a conta do Ricardo Ribeiro) | Toda a CCLX | Tudo |
 | CAF | Toda a CCLX | Criar, alterar e apagar entidades e custos fixos; importar; bancos; aprovar orçamento; fechar meses; publicar |
-| Tesoureiro | A sua comunidade | Importar dados Jotform da sua comunidade; consultar |
+| Tesoureiro | A sua comunidade | Só consultar |
 | Leitura | Comunidades atribuídas | Consultar até ao nível definido |
 
 Níveis: **Público** (sem login, só totais de meses fechados, grupos com menos de 3 registos escondidos, vencimentos dentro de "Custos de funcionamento"), **Privado** (detalhe com pseudónimos, sem nomes/NIF/email/IBAN), **Confidencial** (tudo).
@@ -52,11 +52,30 @@ A privacidade é imposta nas [regras do Firestore](firestore.rules), testadas em
 Saídas = custos fixos (tabela, meses decorridos) + despesas e reembolsos do Jotform + débitos bancários marcados para contabilizar.
 Movimentos bancários conciliados com o Jotform não contam duas vezes.
 
+## Sincronização automática com o Jotform
+
+[`scripts/sync-jotform.ts`](scripts/sync-jotform.ts) corre no GitHub Actions ([sync-jotform.yml](.github/workflows/sync-jotform.yml)) às 05:23, 11:23, 17:23 e 23:23 UTC, e também à mão (Actions → *Sincronização automática Jotform* → *Run workflow*). Não precisa do plano Blaze.
+
+1. Lê os 4 formulários desde 01/01/2025 (só leitura).
+2. Grava lotes mensais por comunidade (confidencial e privado), sem tocar em meses fechados, e remove lotes de submissões apagadas.
+3. Recalcula resumos e página pública.
+4. Regista o resultado em `estado/sync` (visível no portal) e na auditoria.
+
+A chave da API Jotform é lida do Firestore (`segredos/jotform`, guardada pelo Master em Configuração).
+
+**Configuração (uma vez):** criar uma conta de serviço só com acesso ao Firestore e guardar a sua chave JSON no segredo do repositório `FIREBASE_SERVICE_ACCOUNT`:
+
+1. Google Cloud Console → projeto `cclx-caf-portal` → IAM e administrador → Contas de serviço → Criar conta de serviço (`caf-sync`), com a função **Utilizador do Cloud Datastore** (`roles/datastore.user`).
+2. Na conta criada → Chaves → Adicionar chave → JSON (descarrega um ficheiro).
+3. GitHub → `cclx-pt/poc-portalcaf` → Settings → Secrets and variables → Actions → New repository secret: nome `FIREBASE_SERVICE_ACCOUNT`, valor = conteúdo do ficheiro JSON. Depois apagar o ficheiro do computador.
+
+Alternativa sem chave (mais segura, mais passos): Workload Identity Federation entre o GitHub e o Google Cloud.
+
 ## Desenvolvimento
 
 ```bash
 npm ci
-npm run dev          # http://localhost:5173/caf-portal/
+npm run dev          # http://localhost:5173/poc-portalcaf/
 npm test             # lógica: importação, resumos, extratos
 npm run test:rules   # regras de segurança no emulador (precisa de Java)
 npm run build
@@ -76,7 +95,8 @@ As regras do Firestore publicam-se com `npx firebase deploy --only firestore:rul
 ## Decisões tomadas no PoC
 
 - Só o Master e o CAF alteram entidades (comunidades, contas, categorias) e custos fixos. Entidades com dados associados não se apagam: desativam-se (`ativo = false`) e deixam de aparecer nas listas de escolha, mantendo o histórico. A verificação de dados associados é feita na aplicação; as regras limitam quem pode apagar.
-- A chave da API Jotform fica, por agora, no Firestore (só o Master a lê) e a sincronização corre no browser do Master.
+- A chave da API Jotform fica no Firestore (só o Master e a sincronização automática a leem).
+- Importação automática pelo GitHub Actions; os tesoureiros só consultam.
 
 - Plano gratuito (Spark): sem Cloud Functions. Os cálculos e a anonimização correm no browser de quem importa; as regras garantem que cada perfil só lê o seu nível.
 - Alojamento no GitHub Pages (sem credenciais no GitHub) em vez do Firebase Hosting.
@@ -88,7 +108,7 @@ As regras do Firestore publicam-se com `npx firebase deploy --only firestore:rul
 
 ## Decisões críticas pendentes
 
-1. **Chave da API Jotform (evolução):** decidido manter no Firestore por agora. Quando houver plano Blaze: Cloud Function agendada e Secret Manager.
+1. **Chave da API Jotform (evolução):** decidido manter no Firestore. Quando houver plano Blaze, pode passar para o Secret Manager.
 2. **Plano Blaze:** necessário para sincronização automática, cópias de segurança agendadas e cálculos no servidor (dados confidenciais deixam de passar pelo browser).
 3. **Propriedade do projeto Firebase:** adicionar `tesouraria@cclx.pt` como Owner (hoje está numa conta pessoal).
 4. **Sal dos pseudónimos:** mover para um segredo no servidor (com o sal público, um pseudónimo pode ser confirmado por quem já conhece o NIF/email).

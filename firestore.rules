@@ -36,9 +36,10 @@ service cloud.firestore {
     function allScope() { return isMaster() || profile().comunidades.hasAny(['*']); }
     function inScope(c) { return allScope() || profile().comunidades.hasAny([c]); }
 
-    // Quem pode alterar dados de uma comunidade: master e CAF (todas), tesoureiro (a sua).
+    // Quem pode alterar dados importados: só master e CAF (a importação normal é automática, pelo servidor).
+    // O tesoureiro só consulta a sua comunidade.
     function canWriteCommunity(c) {
-      return hasRole(['master', 'caf']) || (hasRole(['tesoureiro']) && inScope(c));
+      return hasRole(['master', 'caf']) && inScope(c);
     }
     // Meses fechados só podem ser alterados pelo master.
     function periodOpen(p) {
@@ -119,9 +120,15 @@ service cloud.firestore {
       allow create: if isActive() && request.resource.data.quem == myEmail();
     }
 
-    // ---------- segredos (PoC): só master ----------
+    // ---------- segredos: chave da API Jotform, só master ----------
     match /segredos/{id} {
       allow read, write: if isMaster();
+    }
+
+    // ---------- estado da sincronização automática (escrito pelo servidor) ----------
+    match /estado/{id} {
+      allow read: if isActive();
+      allow write: if false;
     }
   }
 }

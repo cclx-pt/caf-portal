@@ -1,0 +1,28 @@
+name: Sincronização automática Jotform
+
+# Lê os formulários Jotform (só leitura) e atualiza o Firestore 4 vezes por dia.
+# Também pode ser corrida à mão: Actions → "Sincronização automática Jotform" → Run workflow.
+on:
+  schedule:
+    - cron: '23 5,11,17,23 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-jotform
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sincronizar
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: npx tsx scripts/sync-jotform.ts

@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run tests/unit",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-caf \"vitest run tests/rules\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-caf \"vitest run tests/rules\"",
+    "sync": "tsx scripts/sync-jotform.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
@@ -26,7 +27,9 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
+    "firebase-admin": "^13.10.0",
     "firebase-tools": "^14.27.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^6.4.6",
     "vitest": "^3.2.7"
