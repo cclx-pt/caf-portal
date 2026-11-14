@@ -3,16 +3,14 @@ import { useAuth } from '../auth/AuthProvider';
 import { Modal, mensagemErro } from './ui';
 import { FONTES, construirLotes, mapearLinhas, sugerirMapa, type Linha } from '../lib/fontes';
 import { lerFicheiro } from '../lib/ficheiros';
-import { auditar, gravarLotes, lerSegredoJotform } from '../lib/db';
-import { lerSubmissoes } from '../lib/jotform';
-import { JOTFORM_FORMS } from '../lib/seed';
+import { auditar, gravarLotes } from '../lib/db';
 import { eur } from '../lib/format';
 import type { Origem } from '../lib/types';
 
 export const HISTORICO_DESDE = '2025-01-01';
 
-/** Importa uma exportação Jotform (CSV/Excel) ou sincroniza pela API, e grava em lotes mensais. */
-export function Importar({ origem, onFeito, onFechar, modo }: { origem: Origem; onFeito: () => void; onFechar: () => void; modo: 'ficheiro' | 'api' }) {
+/** Importação manual de recurso (CSV/Excel). A importação normal é automática (scripts/sync-jotform.ts). */
+export function Importar({ origem, onFeito, onFechar }: { origem: Origem; onFeito: () => void; onFechar: () => void }) {
   const { acesso } = useAuth();
   const def = FONTES[origem];
   const [colunas, setColunas] = useState<string[]>([]);
@@ -31,19 +29,6 @@ export function Importar({ origem, onFeito, onFechar, modo }: { origem: Origem; 
     } catch (e) { setErro(mensagemErro(e)); setEstado(null); }
   }
 
-  async function sincronizar() {
-    setErro(null); setOcupado(true);
-    try {
-      const cfg = await lerSegredoJotform();
-      if (!cfg?.apiKey) throw new Error('A chave da API Jotform ainda não foi configurada (Configuração → Jotform).');
-      setEstado('A ler submissões do Jotform…');
-      const rows = await lerSubmissoes(cfg, JOTFORM_FORMS[origem].id, HISTORICO_DESDE, (n) => setEstado(`${n} submissões lidas…`));
-      const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
-      setColunas(cols); setLinhas(rows); setMapa(sugerirMapa(def, cols));
-      setEstado(`${rows.length} submissões lidas desde ${HISTORICO_DESDE}.`);
-    } catch (e) { setErro(mensagemErro(e)); setEstado(null); } finally { setOcupado(false); }
-  }
-
   const resultado = useMemo(() => (linhas.length ? mapearLinhas(origem, linhas, mapa) : null), [origem, linhas, mapa]);
   const permitidos = (c: string) => acesso!.comunidades.includes('*') || acesso!.comunidades.includes(c);
   const validos = (resultado?.registos ?? []).filter((r) => r.data >= HISTORICO_DESDE);
@@ -60,24 +45,21 @@ export function Importar({ origem, onFeito, onFechar, modo }: { origem: Origem; 
       const { conf, priv } = await construirLotes(origem, aGravar, acesso!.email);
       setEstado(`A gravar ${priv.length} lotes mensais…`);
       const falhas = await gravarLotes(conf, priv, origem === 'assistencia');
-      await auditar(acesso!.email, `importar ${origem}`, `${aGravar.length} registos em ${priv.length} lotes (${modo})${falhas.length ? `; recusados: ${falhas.join(', ')}` : ''}`);
+      await auditar(acesso!.email, `importar ${origem}`, `${aGravar.length} registos em ${priv.length} lotes (ficheiro)${falhas.length ? `; recusados: ${falhas.join(', ')}` : ''}`);
       setEstado(falhas.length ? `Gravado, exceto ${falhas.length} lotes recusados (meses fechados ou sem permissão): ${falhas.join('; ')}` : `Gravados ${aGravar.length} registos em ${priv.length} lotes mensais.`);
       onFeito();
     } catch (e) { setErro(mensagemErro(e)); } finally { setOcupado(false); }
   }
 
   return (
-    <Modal titulo={`${modo === 'api' ? 'Sincronizar' : 'Importar'}: ${def.titulo}`} onFechar={onFechar}>
+    <Modal titulo={`Importar manualmente: ${def.titulo}`} onFechar={onFechar}>
       <div className="nota">
-        O processo continua no Jotform: o portal só lê. Cada importação <b>substitui os meses que contém</b> (por comunidade), por isso use sempre exportações com meses completos.
+        A importação normal é <b>automática</b>, várias vezes por dia. Use esta opção só como recurso. Cada importação <b>substitui os meses que contém</b> (por comunidade), por isso use sempre exportações com meses completos.
         Os dados pessoais (nome, NIF, email, telefone, IBAN) ficam só no nível confidencial; os outros níveis veem pseudónimos.
       </div>
-      {modo === 'ficheiro' && (
-        <label className="campo">Ficheiro exportado do Jotform (CSV ou Excel)
-          <input type="file" accept=".csv,.xlsx,.xlsm,.txt" onChange={(e) => e.target.files?.[0] && carregarFicheiro(e.target.files[0])} />
-        </label>
-      )}
-      {modo === 'api' && !linhas.length && <button disabled={ocupado} onClick={sincronizar}>Ler submissões do Jotform</button>}
+      <label className="campo">Ficheiro exportado do Jotform (CSV ou Excel)
+        <input type="file" accept=".csv,.xlsx,.xlsm,.txt" onChange={(e) => e.target.files?.[0] && carregarFicheiro(e.target.files[0])} />
+      </label>
       {estado && <p className="small" style={{ marginTop: 10 }}>{estado}</p>}
       {erro && <div className="aviso">{erro}</div>}
 

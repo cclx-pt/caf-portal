@@ -119,11 +119,24 @@ export const gravarVersaoOrcamento = (o: Orcamento) => setDoc(doc(db, 'orcamento
 export const listarFechos = () => lista<Fecho & { id: string }>('fechos');
 export const gravarFecho = (f: Fecho) => setDoc(doc(db, 'fechos', f.periodo), f);
 
-// ---------- segredos (PoC, só master) ----------
+// ---------- segredo Jotform (só master) ----------
 export async function lerSegredoJotform(): Promise<{ apiKey: string; base: string } | null> {
   const s = await getDoc(doc(db, 'segredos', 'jotform'));
   return s.exists() ? (s.data() as { apiKey: string; base: string }) : null;
 }
 export const gravarSegredoJotform = (v: { apiKey: string; base: string }) => setDoc(doc(db, 'segredos', 'jotform'), v);
+
+// ---------- estado da sincronização automática ----------
+export interface EstadoSync {
+  inicio: string;
+  fim: string;
+  ok: boolean;
+  erros: string[];
+  resultado: Record<string, { submissoes: number; registos: number; rejeitadas: number; lotes: number; mesesFechadosIgnorados: number; removidos: number }>;
+}
+export async function lerEstadoSync(): Promise<EstadoSync | null> {
+  const s = await getDoc(doc(db, 'estado', 'sync'));
+  return s.exists() ? (s.data() as EstadoSync) : null;
+}
 
 export { db };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { Estado, GraficoBarras, Kpi, useCarregar, useFiltros } from '../components/ui';
 import { Importar } from '../components/Importar';
+import { SyncEstado } from '../components/SyncEstado';
 import { listarComunidades, listarLotes } from '../lib/db';
 import { FONTES } from '../lib/fontes';
 import { eur, MESES_CURTOS, r2 } from '../lib/format';
@@ -18,7 +19,7 @@ export default function Fonte({ origem }: { origem: Origem }) {
   const { acesso, pode, temNivel } = useAuth();
   const { ano, comunidade } = useFiltros();
   const [verPessoais, setVerPessoais] = useState(false);
-  const [importar, setImportar] = useState<null | 'ficheiro' | 'api'>(null);
+  const [importar, setImportar] = useState(false);
   const conf = verPessoais && temNivel('confidencial') && origem !== 'assistencia';
   const lotes = useCarregar(() => listarLotes(acesso!, origem, ano, conf), [origem, ano, conf, acesso?.email]);
   const coms = useCarregar(listarComunidades, []);
@@ -44,10 +45,10 @@ export default function Fonte({ origem }: { origem: Origem }) {
         <div>
           <h1>{t.titulo} {ano}</h1>
           <p className="muted">{t.intro} O processo é feito no Jotform; aqui só se recebe e apresenta.</p>
+          <SyncEstado />
         </div>
         <div className="acoes">
-          {pode('importar') && <button onClick={() => setImportar('ficheiro')}>Importar exportação Jotform</button>}
-          {acesso?.papel === 'master' && <button className="sec" onClick={() => setImportar('api')}>Sincronizar pela API</button>}
+          {pode('importar') && <button className="sec" onClick={() => setImportar(true)}>Importação manual (recurso)</button>}
         </div>
       </div>
       {temNivel('confidencial') && origem !== 'assistencia' && (
@@ -99,7 +100,7 @@ export default function Fonte({ origem }: { origem: Origem }) {
           </table></div>
         </div>
       </>}
-      {importar && <Importar origem={origem} modo={importar} onFechar={() => setImportar(null)} onFeito={() => void lotes.recarregar()} />}
+      {importar && <Importar origem={origem} onFechar={() => setImportar(false)} onFeito={() => void lotes.recarregar()} />}
       <p className="muted">Campos usados: {FONTES[origem].campos.map((c) => c.label).join(', ')}.</p>
     </>
   );

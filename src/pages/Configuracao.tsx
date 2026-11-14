@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SyncEstado } from '../components/SyncEstado';
 import { useAuth } from '../auth/AuthProvider';
 import { Estado, Modal, mensagemErro, useCarregar } from '../components/ui';
 import { apagar, auditar, gravar, gravarSegredoJotform, lerSegredoJotform, listarCategorias, listarComunidades, listarContas, listarCustosFixos } from '../lib/db';
@@ -24,8 +25,16 @@ export default function Configuracao() {
   const [ocupado, setOcupado] = useState(false);
   const [edit, setEdit] = useState<Edicao | null>(null);
   const [jot, setJot] = useState({ apiKey: '', base: 'https://eu-api.jotform.com' });
+  useEffect(() => { if (acesso?.papel === 'master') void lerSegredoJotform().then((j) => j && setJot({ apiKey: j.apiKey ? '••••••••' : '', base: j.base })); }, [acesso?.papel]);
+  async function guardarJotform() {
+    if (jot.apiKey.startsWith('•')) { setMsg('Introduza a nova chave para a substituir.'); return; }
+    try {
+      await gravarSegredoJotform(jot);
+      await auditar(acesso!.email, 'configurar jotform', jot.base);
+      setJot({ ...jot, apiKey: '••••••••' }); setMsg('Chave Jotform guardada (só o Master a pode ler). A próxima sincronização automática já a usa.');
+    } catch (e) { setMsg(mensagemErro(e)); }
+  }
   const [filtroCat, setFiltroCat] = useState<'todas' | 'entrada' | 'saida'>('todas');
-  useEffect(() => { void lerSegredoJotform().then((j) => j && setJot({ apiKey: j.apiKey ? '••••••••' : '', base: j.base })); }, []);
   const recarregar = () => Promise.all([coms.recarregar(), contas.recarregar(), cats.recarregar()]);
 
   async function inicializar() {
@@ -92,15 +101,6 @@ export default function Configuracao() {
       await gravar(col, { ...v, ativo: v.ativo === false });
       await auditar(acesso!.email, v.ativo === false ? `ativar ${tipo}` : `desativar ${tipo}`, v.nome);
       await recarregar();
-    } catch (e) { setMsg(mensagemErro(e)); }
-  }
-
-  async function guardarJotform() {
-    if (jot.apiKey.startsWith('•')) { setMsg('Introduza a nova chave para a substituir.'); return; }
-    try {
-      await gravarSegredoJotform(jot);
-      await auditar(acesso!.email, 'configurar jotform', jot.base);
-      setJot({ ...jot, apiKey: '••••••••' }); setMsg('Chave Jotform guardada (só o Master a pode ler).');
     } catch (e) { setMsg(mensagemErro(e)); }
   }
 
@@ -183,14 +183,13 @@ export default function Configuracao() {
         </table></div>
       </div>
 
-      {acesso?.papel === 'master' && (
-        <div className="sec card">
-          <h2>Ligação ao Jotform (só leitura)</h2>
-          <p className="small">Formulários: {Object.values(JOTFORM_FORMS).map((f) => `${f.nome} (${f.id})`).join(' · ')}.</p>
-          <div className="nota">
-            <b>Decisão tomada:</b> por agora a chave da API fica guardada no Firebase, legível só pelo Master, e a sincronização corre no browser do Master.
-            Use uma chave <b>só de leitura</b> criada em jotform.com → Definições → API. Evolução futura: função no servidor (plano Blaze) com a chave no Secret Manager.
-          </div>
+      <div className="sec card">
+        <h2>Sincronização automática com o Jotform (só leitura)</h2>
+        <p className="small">Formulários: {Object.values(JOTFORM_FORMS).map((f) => `${f.nome} (${f.id})`).join(' · ')}.</p>
+        <p className="small">Uma tarefa agendada no GitHub Actions lê os formulários 4 vezes por dia, grava os lotes mensais (sem tocar em meses fechados) e recalcula os resumos e a página pública.</p>
+        <SyncEstado detalhe />
+        {acesso?.papel === 'master' && <>
+          <p className="small"><b>Decisão tomada:</b> a chave da API fica guardada no Firebase, legível só pelo Master e pela sincronização automática. Use uma chave <b>só de leitura</b> (jotform.com → Definições → API).</p>
           <div className="linha">
             <label className="campo">Servidor
               <select value={jot.base} onChange={(e) => setJot({ ...jot, base: e.target.value })}>
@@ -201,8 +200,8 @@ export default function Configuracao() {
             <label className="campo">Chave da API (só leitura)<input type="password" value={jot.apiKey} onChange={(e) => setJot({ ...jot, apiKey: e.target.value })} style={{ width: 280 }} /></label>
             <button onClick={guardarJotform} disabled={!jot.apiKey}>Guardar chave</button>
           </div>
-        </div>
-      )}
+        </>}
+      </div>
 
       {edit && (
         <Modal titulo={`${edit.novo ? 'Nova' : 'Editar'} ${edit.tipo === 'comunidade' ? 'comunidade' : edit.tipo === 'conta' ? 'conta bancária' : 'categoria'}`} onFechar={() => setEdit(null)}>

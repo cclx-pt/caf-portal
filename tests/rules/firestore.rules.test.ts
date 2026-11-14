@@ -108,9 +108,13 @@ describe('tesoureiro de Caldas da Rainha', () => {
     await assertSucceeds(getDocs(query(collection(db, 'custos_fixos'), where('nivel', 'in', ['publico', 'privado']), where('comunidadeId', 'in', ['caldas-da-rainha']))));
     await assertFails(getDocs(query(collection(db, 'custos_fixos'), where('nivel', 'in', ['publico', 'privado', 'confidencial']), where('comunidadeId', 'in', ['caldas-da-rainha']))));
   });
-  it('importa para a sua comunidade, não para outras', async () => {
-    await assertSucceeds(setDoc(doc(as(TES_CDR), 'lotes', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
-    await assertFails(setDoc(doc(as(TES_CDR), 'lotes', 'w'), { comunidadeId: 'almada', periodo: '2026-04', registos: [] }));
+  it('só consulta: não importa nem altera dados', async () => {
+    await assertFails(setDoc(doc(as(TES_CDR), 'lotes', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
+    await assertFails(setDoc(doc(as(TES_CDR), 'lotes_conf', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
+  });
+  it('lê o estado da sincronização mas não o escreve', async () => {
+    await assertSucceeds(getDoc(doc(as(TES_CDR), 'estado', 'sync')));
+    await assertFails(setDoc(doc(as(MASTER), 'estado', 'sync'), { ok: true }));
   });
   it('não altera entidades nem custos fixos', async () => {
     await assertFails(setDoc(doc(as(TES_CDR), 'comunidades', 'nova'), { nome: 'Nova' }));
