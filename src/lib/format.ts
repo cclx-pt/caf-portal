@@ -8,6 +8,8 @@ function grupo(v: number, casas: number) {
 /** Valores sempre em euros, com duas casas decimais. */
 export const eur = (v: number | null | undefined) => (v == null || Number.isNaN(v) ? '—' : `${grupo(v, 2)} €`);
 export const eurK = (v: number) => `${grupo(v, 0)} €`;
+/** Números sem moeda (ex.: pessoas). Por defeito sem casas decimais. */
+export const num = (v: number | null | undefined, casas = 0) => (v == null || !Number.isFinite(v) ? '—' : grupo(v, casas));
 export const pct = (v: number | null | undefined) =>
   v == null || !Number.isFinite(v) ? '—' : `${(v * 100).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
