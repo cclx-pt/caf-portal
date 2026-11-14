@@ -1,5 +1,5 @@
 import { periodo, r2 } from './format';
-import type { BancoLote, Comunidade, CustoFixo, Lote, Publico, PublicoMes, Resumo, ResumoMes } from './types';
+import type { BancoLote, Comunidade, CustoFixo, Lote, Publico, PublicoMes, PublicoSite, Resumo, ResumoMes } from './types';
 
 export interface DadosCalculo {
   ano: number;
@@ -141,6 +141,29 @@ export function calcularPublico(ano: number, resumos: Resumo[], comunidades: Com
     }))
     .sort((a, b) => (comunidades.find((c) => c.id === a.id)?.ordem ?? 50) - (comunidades.find((c) => c.id === b.id)?.ordem ?? 50));
   return { ano, comunidades: linhas, mesesFechados: fechados, atualizadoEm: new Date().toISOString() };
+}
+
+/**
+ * Visão pública do site (CCLX consolidado), para a página sem login.
+ * Calculada a partir dos resumos (não da soma das comunidades já protegidas), com a mesma regra:
+ * valores com menos de 3 registos no total não são mostrados.
+ */
+export function calcularPublicoSite(ano: number, resumos: Resumo[], mesesFechados: Set<string>): PublicoSite {
+  const fechados = Array.from({ length: 12 }, (_, i) => i + 1).filter((mes) => mesesFechados.has(periodo(ano, mes)));
+  const rs = resumos.filter((r) => r.comunidadeId !== 'bolsa-geral');
+  const meses = fechados.map((mes): PublicoMes => {
+    const xs = rs.map((r) => r.meses[mes - 1]);
+    const nEntradas = xs.reduce((s, x) => s + x.n.contribuir + x.n.coletas + x.n.transferencias, 0);
+    const nDespesas = xs.reduce((s, x) => s + x.n.despesas, 0);
+    const somaE = r2(xs.reduce((s, x) => s + x.entradas, 0));
+    const somaD = r2(xs.reduce((s, x) => s + x.despesas, 0));
+    const custos = r2(xs.reduce((s, x) => s + x.custosFixos, 0));
+    const entradas = nEntradas >= 3 || nEntradas === 0 ? somaE : null;
+    const outras = nDespesas >= 3 || nDespesas === 0 ? somaD : null;
+    const saldo = entradas == null || outras == null ? null : r2(entradas - custos - outras);
+    return { mes, entradas, custosFuncionamento: custos, outrasDespesas: outras, saldo };
+  });
+  return { ano, site: { nome: 'CCLX', meses }, mesesFechados: fechados, atualizadoEm: new Date().toISOString() };
 }
 
 export function somarMeses(ms: ResumoMes[]) {

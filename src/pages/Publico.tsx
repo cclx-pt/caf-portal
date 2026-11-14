@@ -1,29 +1,27 @@
 import { useState } from 'react';
+import { useAuth } from '../auth/AuthProvider';
 import { Estado, GraficoBarras, Kpi, Rodape, useCarregar } from '../components/ui';
-import { lerPublico } from '../lib/db';
+import { lerPublico, lerPublicoSites } from '../lib/db';
 import { eur, MESES, MESES_CURTOS, r2 } from '../lib/format';
+import type { PublicoMes } from '../lib/types';
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function Publico({ embutido }: { embutido?: boolean }) {
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [com, setCom] = useState('todas');
+  // Sem login: só a visão do site (CCLX consolidado). Com login: também cada comunidade.
+  const { acesso } = useAuth();
+  const comLogin = !!acesso;
+  const [com, setCom] = useState('cclx');
   const p = useCarregar(() => lerPublico(ano), [ano]);
+  const ps = useCarregar(() => (comLogin ? lerPublicoSites(ano) : Promise.resolve(null)), [ano, comLogin]);
   const d = p.dados;
-  const lista = d?.comunidades ?? [];
-  const sel = com === 'todas' ? lista : lista.filter((c) => c.id === com);
+  const lista = comLogin ? ps.dados?.comunidades ?? [] : [];
+  const escolhida = com === 'cclx' ? null : lista.find((c) => c.id === com) ?? null;
+  const meses: PublicoMes[] = escolhida ? escolhida.meses : d?.site.meses ?? [];
   const mesesF = d?.mesesFechados ?? [];
+  const porMes = meses.map((m) => ({ mes: m.mes, entradas: m.entradas, custos: m.custosFuncionamento, outras: m.outrasDespesas, saldo: m.saldo }));
   const somaNull = (vs: (number | null)[]) => (vs.some((v) => v == null) ? null : r2(vs.reduce<number>((s, v) => s + (v ?? 0), 0)));
-  const porMes = mesesF.map((mes) => {
-    const xs = sel.map((c) => c.meses.find((m) => m.mes === mes)!).filter(Boolean);
-    return {
-      mes,
-      entradas: somaNull(xs.map((x) => x.entradas)),
-      custos: somaNull(xs.map((x) => x.custosFuncionamento)),
-      outras: somaNull(xs.map((x) => x.outrasDespesas)),
-      saldo: somaNull(xs.map((x) => x.saldo)),
-    };
-  });
   const tot = {
     entradas: somaNull(porMes.map((m) => m.entradas)),
     custos: somaNull(porMes.map((m) => m.custos)),
@@ -36,8 +34,9 @@ export default function Publico({ embutido }: { embutido?: boolean }) {
       <div className="linha" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
           <div className="topo" style={{ border: 0, padding: 0, margin: 0 }}><span className="kicker">Página pública · Transparência financeira</span></div>
-          <h1>Contas da CCLX {ano}</h1>
-          <p className="muted">Só totais de meses já fechados e aprovados pelo CAF. Valores com menos de 3 registos não são mostrados, para proteger a privacidade.</p>
+          <h1>{escolhida ? `Contas de ${escolhida.nome} ${ano}` : `Contas da CCLX ${ano}`}</h1>
+          <p className="muted">Só totais de meses já fechados e aprovados pelo CAF. Valores com menos de 3 registos não são mostrados, para proteger a privacidade.
+            {comLogin ? ' Pode ver o total da CCLX ou cada comunidade.' : ' Visão consolidada de toda a CCLX. O detalhe por comunidade está disponível no portal, com login.'}</p>
         </div>
         <div className="filtros">
           <label className="campo">Ano
@@ -45,15 +44,17 @@ export default function Publico({ embutido }: { embutido?: boolean }) {
               {[0, 1, 2].map((k) => new Date().getFullYear() - k).map((a) => <option key={a}>{a}</option>)}
             </select>
           </label>
-          <label className="campo">Comunidade
-            <select value={com} onChange={(e) => setCom(e.target.value)}>
-              <option value="todas">Todas</option>
-              {lista.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
-          </label>
+          {comLogin && (
+            <label className="campo">Ver
+              <select value={com} onChange={(e) => setCom(e.target.value)}>
+                <option value="cclx">CCLX (todas as comunidades)</option>
+                {lista.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </label>
+          )}
         </div>
       </div>
-      <Estado aCarregar={p.aCarregar} erro={p.erro} vazio={!d || !mesesF.length} />
+      <Estado aCarregar={p.aCarregar || ps.aCarregar} erro={p.erro || ps.erro} vazio={!d || !mesesF.length} />
       {d && !!mesesF.length && <>
         <div className="cards">
           <Kpi titulo="Entradas" valor={eur(tot.entradas)} sub={`${mesesF.length} meses fechados`} />

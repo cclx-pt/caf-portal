@@ -39,14 +39,21 @@ beforeEach(async () => {
     await setDoc(doc(db, 'lotes', 'contribuir_2026_03_almada'), { comunidadeId: 'almada', periodo: '2026-03', registos: [] });
     await setDoc(doc(db, 'custos_fixos', 'cdr-vencimentos'), { comunidadeId: 'caldas-da-rainha', nivel: 'confidencial', rubrica: 'Vencimentos' });
     await setDoc(doc(db, 'custos_fixos', 'cdr-renda'), { comunidadeId: 'caldas-da-rainha', nivel: 'privado', rubrica: 'Renda' });
-    await setDoc(doc(db, 'publico', '2026'), { comunidades: [] });
+    await setDoc(doc(db, 'publico', '2026'), { site: { nome: 'CCLX', meses: [] } });
+    await setDoc(doc(db, 'publico_sites', '2026'), { comunidades: [] });
     await setDoc(doc(db, 'fechos', '2026-01'), { estado: 'fechado' });
   });
 });
 
 describe('página pública', () => {
-  it('qualquer pessoa lê o resumo público', async () => {
+  it('qualquer pessoa lê o resumo público do site (CCLX)', async () => {
     await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), 'publico', '2026')));
+  });
+  it('as contas por comunidade só se leem com login', async () => {
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'publico_sites', '2026')));
+    await assertSucceeds(getDoc(doc(as(LEITOR), 'publico_sites', '2026')));
+    await assertFails(setDoc(doc(as(LEITOR), 'publico_sites', '2026'), { comunidades: [] }));
+    await assertSucceeds(setDoc(doc(as(CAF), 'publico_sites', '2026'), { comunidades: [] }));
   });
   it('sem login não lê dados privados', async () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'lotes', 'contribuir_2026_03_almada')));

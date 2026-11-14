@@ -94,9 +94,14 @@ service cloud.firestore {
       allow read: if isActive() && myNivel() >= 1 && inScope(resource.data.comunidadeId);
       allow write: if hasRole(['master', 'caf']);
     }
-    // Página pública: sem login.
+    // Página pública sem login: só a visão do site CCLX (consolidado).
     match /publico/{id} {
       allow read: if true;
+      allow write: if hasRole(['master', 'caf']);
+    }
+    // Contas públicas por comunidade (sites): só com login.
+    match /publico_sites/{id} {
+      allow read: if isActive();
       allow write: if hasRole(['master', 'caf']);
     }
 

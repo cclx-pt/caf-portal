@@ -153,9 +153,18 @@ export interface PublicoMes {
   saldo: number | null;
 }
 
+/** Contas públicas por comunidade (publico_sites/{ano}): só com login. */
 export interface Publico {
   ano: number;
   comunidades: { id: string; nome: string; meses: PublicoMes[] }[];
+  mesesFechados: number[];
+  atualizadoEm: string;
+}
+
+/** Contas públicas do site CCLX, consolidado (publico/{ano}): abertas, sem login. Sem dados por comunidade. */
+export interface PublicoSite {
+  ano: number;
+  site: { nome: string; meses: PublicoMes[] };
   mesesFechados: number[];
   atualizadoEm: string;
 }
