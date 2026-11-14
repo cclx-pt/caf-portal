@@ -8,6 +8,7 @@ import { NIVEIS, NIVEL_LABEL, type Categoria, type Comunidade, type Conta, type 
 import { formatarIban, ibanValido, limparIban } from '../lib/iban';
 import { usosCategoria, usosComunidade, usosConta } from '../lib/uso';
 import { slug } from '../lib/format';
+import { testarChave, type ResultadoTeste } from '../lib/jotform';
 
 type Edicao =
   | { tipo: 'comunidade'; novo: boolean; v: Comunidade }
@@ -33,6 +34,24 @@ export default function Configuracao() {
       await auditar(acesso!.email, 'configurar jotform', jot.base);
       setJot({ ...jot, apiKey: '••••••••' }); setMsg('Chave Jotform guardada (só o Master a pode ler). A próxima sincronização automática já a usa.');
     } catch (e) { setMsg(mensagemErro(e)); }
+  }
+  const [teste, setTeste] = useState<ResultadoTeste | null>(null);
+  const [aTestar, setATestar] = useState(false);
+  async function testarJotform() {
+    setATestar(true); setTeste(null);
+    try {
+      // Usa a chave escrita no campo; se estiver mascarada, usa a guardada no Firebase.
+      let cfg = jot;
+      if (!jot.apiKey || jot.apiKey.startsWith('•')) {
+        const g = await lerSegredoJotform();
+        if (!g?.apiKey) { setTeste({ ok: false, formularios: [], erro: 'Ainda não há chave guardada.' }); return; }
+        cfg = { apiKey: g.apiKey, base: jot.base || g.base };
+      }
+      const r = await testarChave(cfg, Object.values(JOTFORM_FORMS));
+      setTeste(r);
+      await auditar(acesso!.email, 'testar chave jotform', r.ok ? 'ok' : (r.erro ?? 'falhou'));
+    } catch (e) { setTeste({ ok: false, formularios: [], erro: mensagemErro(e) }); }
+    finally { setATestar(false); }
   }
   const [filtroCat, setFiltroCat] = useState<'todas' | 'entrada' | 'saida'>('todas');
   const recarregar = () => Promise.all([coms.recarregar(), contas.recarregar(), cats.recarregar()]);
@@ -199,7 +218,24 @@ export default function Configuracao() {
             </label>
             <label className="campo">Chave da API (só leitura)<input type="password" value={jot.apiKey} onChange={(e) => setJot({ ...jot, apiKey: e.target.value })} style={{ width: 280 }} /></label>
             <button onClick={guardarJotform} disabled={!jot.apiKey}>Guardar chave</button>
+            <button className="sec" onClick={testarJotform} disabled={aTestar}>{aTestar ? 'A testar…' : 'Testar chave'}</button>
           </div>
+          <p className="muted">O teste só lê: confirma a conta e o acesso aos 4 formulários. Não importa nem grava dados.</p>
+          {teste && (
+            <div className={teste.ok ? 'ok-box' : 'aviso'}>
+              <b>{teste.ok ? '✓ A chave funciona.' : '✗ A chave não está a funcionar.'}</b>
+              {teste.conta && <> Conta Jotform: {teste.conta.utilizador}{teste.conta.plano ? ` (${teste.conta.plano})` : ''}.</>}
+              {teste.erro && <> {teste.erro}</>}
+              {teste.sugestaoServidor && <> A chave funciona no servidor <b>{teste.sugestaoServidor.replace('https://', '')}</b>: escolha-o acima e guarde de novo.</>}
+              {teste.formularios.length > 0 && (
+                <ul style={{ margin: '6px 0 0 18px' }}>
+                  {teste.formularios.map((f) => (
+                    <li key={f.id}>{f.ok ? '✓' : '✗'} {f.nome}: {f.ok ? `${f.submissoes} submissões` : f.erro}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </>}
       </div>
 

@@ -70,3 +70,61 @@ export async function lerSubmissoes(cfg: JotConfig, formId: string, desde: strin
   }
   return out;
 }
+
+export interface ResultadoTeste {
+  ok: boolean;
+  conta?: { utilizador: string; nome?: string; plano?: string };
+  formularios: { id: string; nome: string; ok: boolean; titulo?: string; submissoes?: number; erro?: string }[];
+  erro?: string;
+  sugestaoServidor?: string;
+}
+
+async function pedir(base: string, caminho: string, apiKey: string): Promise<{ code: number; message?: string; content?: unknown }> {
+  const res = await fetch(`${base.replace(/\/$/, '')}${caminho}?apiKey=${encodeURIComponent(apiKey)}`);
+  try {
+    const j = (await res.json()) as { responseCode: number; message?: string; content?: unknown };
+    return { code: j.responseCode ?? res.status, message: j.message, content: j.content };
+  } catch {
+    return { code: res.status, message: res.statusText };
+  }
+}
+
+/**
+ * Testa a chave sem gravar nada: confirma a conta (GET /user) e o acesso a cada formulário (GET /form/{id}).
+ * Se falhar num servidor, experimenta o outro (EU/global) para sugerir a troca.
+ */
+export async function testarChave(cfg: JotConfig, forms: { id: string; nome: string }[]): Promise<ResultadoTeste> {
+  const outro = cfg.base.includes('eu-api') ? 'https://api.jotform.com' : 'https://eu-api.jotform.com';
+  let u: Awaited<ReturnType<typeof pedir>>;
+  try {
+    u = await pedir(cfg.base, '/user', cfg.apiKey);
+  } catch {
+    return { ok: false, formularios: [], erro: 'Não foi possível contactar o Jotform. Verifique a ligação à internet.' };
+  }
+  if (u.code !== 200) {
+    let sugestaoServidor: string | undefined;
+    try {
+      if ((await pedir(outro, '/user', cfg.apiKey)).code === 200) sugestaoServidor = outro;
+    } catch { /* ignora */ }
+    return {
+      ok: false,
+      formularios: [],
+      erro: u.code === 401 ? 'O Jotform recusou a chave (não autorizada ou inválida).' : `O Jotform respondeu ${u.code}: ${u.message ?? ''}`,
+      sugestaoServidor,
+    };
+  }
+  const c = (u.content ?? {}) as Record<string, string>;
+  const conta = { utilizador: c.username, nome: c.name, plano: c.account_type?.split('/').pop() };
+  const formularios = await Promise.all(forms.map(async (f) => {
+    try {
+      const r = await pedir(cfg.base, `/form/${f.id}`, cfg.apiKey);
+      if (r.code !== 200) return { ...f, ok: false, erro: r.code === 401 || r.code === 403 ? 'sem acesso com esta chave' : `erro ${r.code}` };
+      const fc = (r.content ?? {}) as Record<string, string>;
+      if (fc.status === 'DELETED') return { ...f, ok: false, titulo: fc.title, erro: 'formulário apagado no Jotform' };
+      return { ...f, ok: true, titulo: fc.title, submissoes: Number(fc.count ?? 0) };
+    } catch {
+      return { ...f, ok: false, erro: 'sem resposta' };
+    }
+  }));
+  return { ok: formularios.every((f) => f.ok), conta, formularios };
+}
