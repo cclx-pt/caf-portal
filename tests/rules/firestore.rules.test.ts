@@ -77,6 +77,12 @@ describe('CAF', () => {
   it('não altera mês fechado', async () => {
     await assertFails(setDoc(doc(as(CAF), 'lotes', 'y'), { comunidadeId: 'almada', periodo: '2026-01', registos: [] }));
   });
+  it('cria, altera e apaga entidades', async () => {
+    await assertSucceeds(setDoc(doc(as(CAF), 'comunidades', 'nova'), { nome: 'Nova', ordem: 9, ativo: true }));
+    await assertSucceeds(setDoc(doc(as(CAF), 'contas', 'cgd-principal'), { nome: 'CGD', iban: 'PT50000201231234567890154' }));
+    await assertSucceeds(setDoc(doc(as(CAF), 'categorias', 'saida-x'), { nome: 'X', tipo: 'saida', nivel: 'privado' }));
+    await assertSucceeds(setDoc(doc(as(CAF), 'custos_fixos', 'cdr-renda'), { comunidadeId: 'caldas-da-rainha', nivel: 'privado', rubrica: 'Renda' }));
+  });
   it('fecha meses e publica', async () => {
     await assertSucceeds(setDoc(doc(as(CAF), 'fechos', '2026-02'), { estado: 'fechado' }));
     await assertSucceeds(setDoc(doc(as(CAF), 'publico', '2026'), { comunidades: [] }));
@@ -105,6 +111,12 @@ describe('tesoureiro de Caldas da Rainha', () => {
   it('importa para a sua comunidade, não para outras', async () => {
     await assertSucceeds(setDoc(doc(as(TES_CDR), 'lotes', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
     await assertFails(setDoc(doc(as(TES_CDR), 'lotes', 'w'), { comunidadeId: 'almada', periodo: '2026-04', registos: [] }));
+  });
+  it('não altera entidades nem custos fixos', async () => {
+    await assertFails(setDoc(doc(as(TES_CDR), 'comunidades', 'nova'), { nome: 'Nova' }));
+    await assertFails(setDoc(doc(as(TES_CDR), 'categorias', 'saida-x'), { nome: 'X' }));
+    await assertFails(setDoc(doc(as(TES_CDR), 'custos_fixos', 'cdr-renda'), { comunidadeId: 'caldas-da-rainha', nivel: 'privado', rubrica: 'Renda' }));
+    await assertFails(getDoc(doc(as(TES_CDR), 'contas', 'cgd-principal')));
   });
   it('não vê bancos nem publica', async () => {
     await assertFails(getDoc(doc(as(TES_CDR), 'banco_lotes', 'qualquer')));

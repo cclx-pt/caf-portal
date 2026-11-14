@@ -72,7 +72,7 @@ export default function CustosFixos() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
               <label className="campo">Comunidade
                 <select value={edit.comunidadeId} onChange={(e) => setEdit({ ...edit, comunidadeId: e.target.value })}>
-                  {(coms.dados ?? []).filter((c) => !c.especial && (acesso!.comunidades.includes('*') || acesso!.comunidades.includes(c.id))).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  {(coms.dados ?? []).filter((c) => !c.especial && (c.ativo !== false || c.id === edit.comunidadeId) && (acesso!.comunidades.includes('*') || acesso!.comunidades.includes(c.id))).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
               </label>
               <label className="campo">Rubrica
