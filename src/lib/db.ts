@@ -126,14 +126,9 @@ export async function lerSegredoJotform(): Promise<{ apiKey: string; base: strin
 }
 export const gravarSegredoJotform = (v: { apiKey: string; base: string }) => setDoc(doc(db, 'segredos', 'jotform'), v);
 
-// ---------- estado da sincronização automática ----------
-export interface EstadoSync {
-  inicio: string;
-  fim: string;
-  ok: boolean;
-  erros: string[];
-  resultado: Record<string, { submissoes: number; registos: number; rejeitadas: number; lotes: number; mesesFechadosIgnorados: number; removidos: number }>;
-}
+// ---------- estado da sincronização com o Jotform ----------
+import type { EstadoSync } from './sync';
+export type { EstadoSync };
 export async function lerEstadoSync(): Promise<EstadoSync | null> {
   const s = await getDoc(doc(db, 'estado', 'sync'));
   return s.exists() ? (s.data() as EstadoSync) : null;

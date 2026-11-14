@@ -112,9 +112,11 @@ describe('tesoureiro de Caldas da Rainha', () => {
     await assertFails(setDoc(doc(as(TES_CDR), 'lotes', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
     await assertFails(setDoc(doc(as(TES_CDR), 'lotes_conf', 'z'), { comunidadeId: 'caldas-da-rainha', periodo: '2026-04', registos: [] }));
   });
-  it('lê o estado da sincronização mas não o escreve', async () => {
+  it('lê o estado da sincronização; só o Master o escreve (sincronização forçada)', async () => {
     await assertSucceeds(getDoc(doc(as(TES_CDR), 'estado', 'sync')));
-    await assertFails(setDoc(doc(as(MASTER), 'estado', 'sync'), { ok: true }));
+    await assertSucceeds(setDoc(doc(as(MASTER), 'estado', 'sync'), { ok: true }));
+    await assertFails(setDoc(doc(as(CAF), 'estado', 'sync'), { ok: true }));
+    await assertFails(setDoc(doc(as(TES_CDR), 'estado', 'sync'), { ok: true }));
   });
   it('não altera entidades nem custos fixos', async () => {
     await assertFails(setDoc(doc(as(TES_CDR), 'comunidades', 'nova'), { nome: 'Nova' }));

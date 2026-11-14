@@ -125,10 +125,10 @@ service cloud.firestore {
       allow read, write: if isMaster();
     }
 
-    // ---------- estado da sincronização automática (escrito pelo servidor) ----------
+    // ---------- estado da sincronização (escrito pelo servidor e pela sincronização forçada do Master) ----------
     match /estado/{id} {
       allow read: if isActive();
-      allow write: if false;
+      allow write: if isMaster();
     }
   }
 }
